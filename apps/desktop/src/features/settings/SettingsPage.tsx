@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { api, type ProxySettings, type ProxySettingsInput, type StatisticsStorage, type StatisticsStorageScope, type TabSettings } from "../../shared/api";
+import { useEffect, useMemo, useState } from "react";
+import { api, pluginText, type ProxySettings, type ProxySettingsInput, type StatisticsStorage, type StatisticsStorageScope, type TabSettings } from "../../shared/api";
 import { PageContent } from "../../shell/layout/PageContent";
 import { LegacyModelImport } from "../models/LegacyModelImport";
 import { AppLifecycleSettingsCard } from "./AppLifecycleSettingsCard";
@@ -13,6 +13,9 @@ import { Checkbox } from "../../shared/ui/Checkbox";
 import { ConfirmDialog } from "../../shared/ui/ConfirmDialog";
 import { FormField, TextInput } from "../../shared/ui/FormControls";
 import { Select } from "../../shared/ui/Select";
+import type { ModelSelectOption } from "../../shared/ui/ModelSelect";
+import { claudeIcon, flatColorOrganizationIcon, openAiIcon } from "../../shared/ui/icons";
+import { modelProviderName } from "../../shared/utils/modelProvider";
 import { TitledCard } from "../../shared/ui/TitledCard";
 import { setLocalePreference, useI18n, type LocalePreference } from "../../i18n/store";
 import { useMessage } from "../../shared/ui/message";
@@ -21,7 +24,7 @@ import { themeOptions } from "../../shared/theme/theme";
 import styles from "./SettingsPage.module.scss";
 
 export function SettingsPage() {
-  const { detailed, ports, theme } = useAppStore();
+  const { detailed, ports, theme, models, plugins } = useAppStore();
   const { preference, locale } = useI18n();
   const message = useMessage();
   const [proxyPort, setProxyPort] = useState(String(ports.proxy_port));
@@ -37,9 +40,39 @@ export function SettingsPage() {
   const [editingProxy, setEditingProxy] = useState(false);
   const [savingProxy, setSavingProxy] = useState(false);
   const [tabSettings, setTabSettings] = useState<TabSettings | null>(null);
-  const [tabDraft, setTabDraft] = useState<TabSettings>({ mode: "public", address: "" });
+  const [tabDraft, setTabDraft] = useState<TabSettings>({ mode: "local", address: "", model_id: "" });
   const [editingTab, setEditingTab] = useState(false);
   const [savingTab, setSavingTab] = useState(false);
+  const tabModelOptions = useMemo(() => {
+    const options: ModelSelectOption[] = [{ value: "", label: t("停用（未选择模型）"), group: "TAB" }];
+    for (const model of models) {
+      options.push({
+        value: model.model_hash,
+        label: model.display_name && model.display_name !== model.model_id
+          ? `${model.display_name}（${model.model_id}）`
+          : model.display_name || model.model_id,
+        group: modelProviderName(model),
+        icon: model.type === "anthropic" ? claudeIcon : openAiIcon,
+      });
+    }
+    for (const plugin of plugins) {
+      for (const provider of plugin.providers) {
+        if (!provider.configured) continue;
+        const group = pluginText(provider.displayName, locale) || plugin.name;
+        for (const model of provider.models) {
+          if (!model.enabled) continue;
+          options.push({
+            value: model.id,
+            label: model.displayName,
+            group,
+            iconSrc: model.icon || undefined,
+            icon: model.icon ? undefined : flatColorOrganizationIcon,
+          });
+        }
+      }
+    }
+    return options;
+  }, [locale, models, plugins]);
   useEffect(() => {
     const report = (cause: unknown) => message(cause instanceof Error ? cause.message : String(cause));
     void api.statisticsStorage().then(setStorage).catch(report);
@@ -141,6 +174,9 @@ export function SettingsPage() {
   const saveTab = async () => {
     try {
       if (tabDraft.mode === "custom" && !tabDraft.address.trim()) throw new Error(t("TAB 服务地址不能为空"));
+      if (tabDraft.mode === "local" && tabDraft.model_id && !tabModelOptions.some((option) => option.value === tabDraft.model_id)) {
+        throw new Error(t("请选择可用的 TAB 模型，或清空选择以停用。"));
+      }
       setSavingTab(true);
       const saved = await api.setTabSettings({ ...tabDraft, address: tabDraft.address.trim() });
       setTabSettings(saved);
@@ -227,7 +263,7 @@ export function SettingsPage() {
       </TitledCard>
       <ExternalApiSettingsCard servicePort={ports.service_port} />
       <ProxySettingsCard settings={outboundProxy} draft={proxyDraft} editing={editingProxy} saving={savingProxy} onDraftChange={setProxyDraft} onEdit={editProxy} onCancel={cancelProxyEdit} onSave={() => void saveProxy()} />
-      <TabSettingsCard settings={tabSettings} draft={tabDraft} editing={editingTab} saving={savingTab} onDraftChange={setTabDraft} onEdit={editTab} onCancel={cancelTabEdit} onSave={() => void saveTab()} />
+      <TabSettingsCard settings={tabSettings} draft={tabDraft} modelOptions={tabModelOptions} editing={editingTab} saving={savingTab} onDraftChange={setTabDraft} onEdit={editTab} onCancel={cancelTabEdit} onSave={() => void saveTab()} />
       <CommitSettingsCard />
       <PricingSettingsCard />
       <AppLifecycleSettingsCard />

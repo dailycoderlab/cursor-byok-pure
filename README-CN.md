@@ -1,23 +1,16 @@
-## 👋 受够了Cursor的性能？ ✨ **同作者新作** → [Baocode](https://github.com/baocode-dev/baocode) —— 为 Claude Code 打造的精致的桌面 GUI，超小尺寸，超低占用
+# Cursor BYOK Pure
 
-<div align="center">
+运行在本机的 Cursor 模型网关：移除运行时广告，默认使用内置 BYOK TAB，不使用作者公共 TAB 服务。
 
-# cursor-byok
+[English README](<./README.md>) · [源码仓库](<https://github.com/kaisun1120/cursor-byok-pure>) · [纯净模式说明](<./docs/PURE-MODE-CN.md>) · [源码阅读指南](<./docs/CODE-READING-CN.md>) · [MIT 许可证](<./LICENSE>)
 
-cursor-byok 是一个运行在本机的 Cursor 模型网关，帮助你在 Cursor 中使用自己配置的模型服务。
+> 本 fork 暂未配置更新源，点击检查更新仅提示“暂无更新源”。不要把上游发布包当作此纯净版。上游通用[安装教程](<https://docs.leokun.cn>)仍可参考，但广告、TAB 和更新行为以本仓库说明为准。
 
-[English README](./README.md) · [使用指南](https://docs.leokun.cn) · [下载](https://github.com/leookun/cursor-byok/releases/latest) · [提交问题](https://github.com/leookun/cursor-byok/issues)
+> “本地网关”不等于离线或绝对安全。所选模型 API 仍会外联，除非你配置的是已经运行的本地推理服务；本项目不会为 TAB 捆绑、下载或启动 Ollama/模型权重。其他 Cursor RPC、搜索、OAuth 和 Semble 下载仍有各自的网络边界。
 
-[![Release](https://img.shields.io/github/v/release/leookun/cursor-byok?style=flat-square)](https://github.com/leookun/cursor-byok/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/leookun/cursor-byok/total?style=flat-square)](https://github.com/leookun/cursor-byok/releases)
-[![License](https://img.shields.io/github/license/leookun/cursor-byok?style=flat-square)](./LICENSE)
-[![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?style=flat-square)](https://github.com/leookun/cursor-byok/releases/latest)
+以下截图已检查，没有可见广告；它们是**上游界面参考**，不是本 fork 实机验收证据，布局和文案可能已变化。
 
-</div>
-
-![将 cursor-byok 连接到多种模型 API](./images/en-brand-1.png)
-
-![cursor-byok 控制面板](./images/en-home-1.png)
+![上游控制面板参考](<./images/en-home-1.png>)
 
 ## 项目简介
 
@@ -36,18 +29,21 @@ cursor-byok 是一个开源的本地模型网关。它在你的设备上运行�
 - **连接性能测试**：查看首字延迟、生成速度、总耗时和原始服务商响应。
 - **Agent 工作流**：继续使用工具调用、Skills、MCP 和多轮对话。
 - **会话指标**：查看 Token 用量、缓存命中率、对话轮次和估算价值。
-- **TAB 补全服务**：在公益服务、官方直连和自定义服务之间选择连接方式。
+- **内置 BYOK TAB**：默认本地模式，明确选择已配置模型后提供当前位置基本补全；也可显式选择官方直连或自托管服务。
+- **无广告、无更新源**：广告链路已移除；保留 updater 机制，但自动检查不发更新请求，手动检查提示“暂无更新源”。
 - **跨平台运行**：支持 macOS、Windows 和 Linux。
 
 ## 快速开始
 
-1. 从 [GitHub Releases](https://github.com/leookun/cursor-byok/releases/latest) 下载适合你操作系统的最新版本。
-2. 启动 cursor-byok，打开 **Cursor 配置**，按提示初始化本地 CA（证书颁发机构）。
-3. 在模型设置中添加模型，填写服务地址、API Key 和模型名称，然后保存并运行 **测试**。
-4. 确认测试通过后，保持 cursor-byok 运行。
-5. **首次升级 Cursor 或首次配置模型后，完全退出并重新启动 Cursor，然后新开一个对话**。在模型列表中选择已配置的模型，开始使用 Agent。
+本 fork 尚未发布安装包，请从本仓库经自己的审查/构建流程获取程序；上游发布包不包含本纯净版改动。
 
-完整的安装步骤、配置说明和常见问题，请参阅[中文使用指南](https://docs.leokun.cn/zh/docs)。
+1. 打开 **Cursor 配置**，先阅读现有本地接管/CA 提示；接受其对系统信任和 Cursor 设置的影响后，由你自行启用接管并安装/信任 CA。
+2. 在模型设置中填写协议、服务地址、API Key 和模型名称，保存并运行 **测试**。连接测试不等于 Agent 工具兼容或 TAB 显示验收。
+3. 打开 **系统设置 → TAB 设置 → 编辑**，保持 **内置 BYOK TAB**，明确选择 **TAB 补全模型**并保存。未选择模型时停用，不自动使用 Agent 模型。
+4. 保持桌面应用运行。TAB 复用同一个 Rust App，自然随应用启动/关闭，不需要另起 Node/Go 补全进程。
+5. **首次接管、升级 Cursor 或首次配置模型后，完全退出并重新启动 Cursor，再新开 Agent 对话**，手动选择配置模型而非 Auto；TAB 另用非敏感临时文件验收。
+
+以上是用户操作步骤，不表示本次文档任务已经启动应用、信任 CA 或修改实际 Cursor 设置。详细边界见[纯净模式说明](<./docs/PURE-MODE-CN.md>)；上游通用安装步骤可参考[中文使用指南](<https://docs.leokun.cn/zh/docs>)，不要照搬旧公益 TAB/下载行为。
 
 > [!TIP]
 > 首次升级 Cursor 或首次完成配置后，必须完全退出并重新启动 Cursor，再新开一个对话。配置前已经打开的对话不会加载新连接；使用自定义模型时，请在模型列表中手动选择该模型，不要选择 **Auto**。
@@ -56,7 +52,7 @@ cursor-byok 是一个开源的本地模型网关。它在你的设备上运行�
 
 每个模型配置都是独立的上游通道，可以单独设置服务商、协议、凭据和生成参数。
 
-![模型设置页面](./images/en-model-1.png)
+![上游模型设置参考，可能与当前版本不同](<./images/en-model-1.png>)
 
 ### 类型与协议选择
 
@@ -84,13 +80,21 @@ GPT 系列建议使用 **Responses API**。如果使用 Chat Completions，可�
 
 ## TAB 补全服务
 
-Cursor 的 Tab 补全由独立的 TAB 服务处理，不经过模型通道。你可以在 **系统设置 → TAB 设置** 中选择以下模式：
+TAB 不走 Agent 会话/工具循环，而是在现有 Rust 服务中独立处理；本地模式复用你明确选中的模型通道。
 
-- **使用公益服务（默认）**：使用项目作者部署的公共服务，无需额外配置。
-- **直连**：直接连接当前 Cursor 账号对应的官方 TAB 服务，适合账号拥有官方额度的情况。
-- **自定义**：自行部署 [`cursor-tab-server`](https://github.com/leookun/cursor-byok/tree/archive/v0.0.49/cursor-tab-server)，然后填写 TAB 服务地址。
+| 模式 | 目标 | 条件与边界 |
+| --- | --- | --- |
+| **内置 BYOK TAB（默认 Local）** | 选定的配置模型/provider | 后端不依赖官方账号；`model_id` 为空就停用，不调用 provider、不外部回退、不自动选 Agent 模型 |
+| **Cursor 官方直连（显式 Direct）** | 官方 TAB | 需要真实登录和可用额度；不承诺匿名可用，mock Ultra 不授予上游权益 |
+| **自托管服务（显式 Custom）** | 你输入的服务基础 URL | 自行审查信任/鉴权；不是自动本地推理 |
 
-修改 TAB 设置后，建议重启 Cursor 并新开一个对话，确保新的连接方式生效。
+设置为 `{mode, address, model_id}`，新存储键是 `cursor_tab_service`。**旧 `cursor_tab` 不读取、不迁移、不加兼容别名，旧的显式 Custom 地址也不会沿用**：请重新选择模型或输入自托管 URL。其他模型、Commit、账号数据不重置。
+
+本地 TAB 只使用请求携带的当前文件快照，生成光标处短插入，再返回“原当前行前缀 + 补全文本 + 原后缀”的当前行替换；处理 UTF-16 光标列和 CRLF。不扫描磁盘仓库、不使用文件同步缓存、不支持多位置/下一光标预测、import/fused/chunks 或分支名生成。缺少文件内容的 file-sync 请求必须重传快照。
+
+默认 256 输出 tokens、最多 4096 生成字节/16 行、256 KiB 输入、8 秒或更短客户端期限、单并发无队列；断开响应取消 provider 并释放许可。用户额外参数可能覆盖上游 token 设置，**256 不是费用上限保证**。不执行工具、不进入 Agent checkpoint 循环、不把 reasoning 当代码输出。
+
+旧 archive 的 `cursor-tab-server` 是需要官方 token 的 Go 代理，不是本地推理/免账号方案。完整结构、操作步骤和未验证客户端行为见[纯净模式说明](<./docs/PURE-MODE-CN.md>)。
 
 ## 与官方账号并存
 
@@ -99,46 +103,52 @@ Cursor 的 Tab 补全由独立的 TAB 服务处理，不经过模型通道。你
 - 直接在 Cursor 中登录自己的账号。如果之前使用旧版生成的 fake 账户，请先退出该账户，再登录自己的账号。
 - 账号拥有官方额度时，官方模型和本地模型可以随时切换混用。
 - **Auto 只使用官方模型**，不会自动使用你配置的本地模型。账号没有官方额度时，请手动选择自己配置的模型。
-- 插件、代码库索引等 Cursor 功能可以继续使用。
+- 未接管的插件/代码库索引等功能仍按 Cursor 自身的网络、账号和额度规则运行，不保证完全离线可用。
+- Local TAB 不把官方凭据头送给模型 provider；显式 Custom 仍透传原 RPC，可能包含 Authorization/Cookie，请只使用自己审查信任的目标。
 
 ## 数据流转
 
 ```text
-Cursor 客户端
-    │
-    │ Agent 请求与工具结果
-    ▼
-cursor-byok 本地服务
-    │
-    │ OpenAI / Anthropic 兼容请求
-    ▼
-你配置的模型 API
+Cursor → 用户自行启用的既有 CA/本地代理 → 同一个 Rust App
+    ├─ Agent → 会话/checkpoint/工具循环 → 你配置的模型 API
+    ├─ Local TAB → 请求自带快照 → 一次受限 provider 调用 → 当前行替换
+    ├─ Commit → 选定 Commit 模型；未选择时官方直连（不跟随 TAB）
+    └─ 未接管 RPC / 显式 Direct TAB → 既有官方转发
+
+桌面设置 → 本地 SQLite → 模型/TAB 配置
+桌面 updater → 无更新源 → 不发更新请求
 ```
 
-API Key、模型配置和应用设置保存在本机。模型请求仍会发送到你选择的上游服务商，请根据对应服务商的隐私政策和计费规则使用。
+API Key、模型配置和应用设置保存在本机；请求仍发给你选的服务商。TAB metadata 保留 `api2.cursor.sh` 的正常 origin，供已启用的现有代理路由回本机，不是 Local 生成失败后的官方回退；未启用代理时不能保证请求到达本地。
+
+广告拉取、图片、关闭反馈、安装 ID 创建、前端缓存/localStorage 和相关翻译已移除，`react-css-marquee` 依赖也已移除。历史广告缓存/数据库标识不再读取复用，但没有删除真实用户目录、数据库或缓存。
+
+保留 updater 检查/验签/安装机制，Tauri `endpoints=[]`、Windows portable 源为 `None`；无源时启动/聚焦/可见性检查不调用更新插件/IPC，手动检查与缓存待安装项都提示“暂无更新源”。未来发布需配置自己的源及正确签名，而不是只换一个 URL。
+
+**管理 API 无鉴权、OAuth/详细日志/插件删除/Semble 等风险没有随广告一起修复。** 保持 loopback，先用低权限 Key 和非敏感文件验证，见[历史审查与当前改动](<./docs/PROJECT-AUDIT-CN.md>)。
 
 ## 项目结构
 
 ```text
-cursor-byok/
+cursor-byok-pure/
 ├── apps/
-│   ├── desktop/
-│   │   ├── src/
-│   │   │   ├── features/ # 首页、模型、调用记录与设置
-│   │   │   ├── shell/    # 窗口框架、页面布局与广告外壳
-│   │   │   ├── shared/   # UI、虚拟列表、状态、API 与平台能力
-│   │   │   ├── i18n/     # 本地化运行时与语言目录
-│   │   │   └── styles/   # 全局主题与排版令牌
-│   │   └── src-tauri/    # Tauri 桌面生命周期
+│   └── desktop/         # 桌面应用
+│       ├── src/         # React 管理界面
+│       │   ├── features/ # 首页、模型、调用记录与设置
+│       │   ├── shell/    # 窗口框架与页面布局；广告模块已删除
+│       │   ├── shared/   # UI、虚拟列表、状态、API 与平台能力
+│       │   ├── i18n/     # 本地化运行时与语言目录
+│       │   └── styles/   # 全局主题与排版令牌
+│       └── src-tauri/    # Tauri 桌面生命周期
 ├── server/
 │   ├── src/
-│   │   ├── cursor/    # Cursor 协议适配
+│   │   ├── cursor/    # Cursor 协议适配；services/tab/ 为内置补全
 │   │   ├── run/       # 通用 Agent Runtime 与内部 Port
 │   │   ├── provider/  # 模型供应商适配
 │   │   ├── model/     # 聚合领域模型
 │   │   ├── store/     # SQLite Repository
 │   │   ├── control/   # 管理面 API
-│   │   ├── harness/   # Cursor 本地集成
+│   │   ├── local_app/ # Cursor 本地 CA、代理、设置与账号接管
 │   │   └── search/    # Web 与 Semble 搜索接入
 │   ├── prompt/
 │   └── migrations/
@@ -201,18 +211,13 @@ make build-desktop   # 构建 Tauri 桌面安装包
 make build-docker    # 构建 Docker 镜像
 ```
 
-## 路线图
+## 验证与反馈
 
-项目将继续改进模型兼容性、Agent 工具、本地运行稳定性和自托管体验，并探索支持更多 IDE、聊天和 Agent 工作流。
+已记录无安装脚本的前端依赖安装、i18n 完整性、TypeScript/Vite 检查与 Rust 定向 45 项测试通过；精确范围见[验证表](<./docs/PURE-MODE-CN.md#6-验证结果与未验证项>)。协议 fixtures 不是 Cursor 已显示/接受 ghost text 的证明；真实 Cursor、真实模型及官方登录/匿名行为仍需单独验收。
 
-计划与进展请参阅[发布路线图](https://github.com/leookun/cursor-byok/discussions/32)。
-
-## 社区与反馈
-
-- [中文使用指南](https://docs.leokun.cn/zh/docs)
-- [GitHub Issues](https://github.com/leookun/cursor-byok/issues)
-- [Telegram 社区](https://t.me/cursor_byok)
-- QQ 群：`1095916242`、`1094411438`、`1095918002`、`1094419321`
+- [本 fork 源码与问题反馈](<https://github.com/kaisun1120/cursor-byok-pure>)
+- [上游源码归属](<https://github.com/leookun/cursor-byok>)
+- [上游通用中文使用指南](<https://docs.leokun.cn/zh/docs>)（与本 fork 行为区分）
 
 提交问题时，请附上操作系统、cursor-byok 版本、模型类型、请求协议、已脱敏的服务地址、错误信息和复现步骤。请勿公开 API Key 或其他凭据。
 
@@ -222,4 +227,4 @@ make build-docker    # 构建 Docker 镜像
 
 ## 许可证
 
-本项目采用 [MIT License](./LICENSE) 开源。
+本项目采用 [MIT License](<./LICENSE>) 开源，保留原项目版权与来源归属；纯净化不改变许可证。

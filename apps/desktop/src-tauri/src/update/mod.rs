@@ -23,8 +23,8 @@ use tauri_plugin_updater::UpdaterExt;
 mod replacement;
 
 #[cfg(target_os = "windows")]
-const PORTABLE_UPDATE_ENDPOINT: &str =
-    "https://github.com/leookun/cursor-byok/releases/latest/download/portable-latest.json";
+// No upstream release source is configured for this fork.
+const PORTABLE_UPDATE_ENDPOINT: Option<&str> = None;
 #[cfg(any(target_os = "windows", test))]
 const WINDOWS_PAYLOAD_NAME: &str = "cursor-byok-desktop.exe";
 
@@ -135,7 +135,9 @@ pub(crate) async fn install_portable_update(
 
 #[cfg(target_os = "windows")]
 async fn portable_update(app: &AppHandle) -> Result<Option<tauri_plugin_updater::Update>, String> {
-    let endpoint = PORTABLE_UPDATE_ENDPOINT
+    let source =
+        PORTABLE_UPDATE_ENDPOINT.ok_or_else(|| "no update source is configured".to_string())?;
+    let endpoint = source
         .parse()
         .map_err(|error| format!("invalid portable update endpoint: {error}"))?;
     let updater = app

@@ -1,8 +1,35 @@
 # Cursor BYOK 项目完整性、外联与安全审查
 
-> 审查日期：2026-11-05（Asia/Shanghai）。对象：当前 `cursor-byok-pure` 下载目录。本文是基于本地源码的审查，不是作者信誉评价、二进制认证或渗透测试报告。阅读路径见[源码阅读指南](<./CODE-READING-CN.md>)。
+> 首次审查日期：2026-11-05（Asia/Shanghai）。**第 1–9 节保留改动前下载快照的结论，不代表当前实现。** 原始 605 文件指纹与当时“无 Git/无 Rust 工具链、未安装前端依赖”的记录仍属于首次任务。当前行为见[纯净模式说明](<./PURE-MODE-CN.md>)，当前结构见[源码阅读指南](<./CODE-READING-CN.md>)。
 
-## 1. 结论
+## 当前改动摘要（历史报告之前）
+
+**已移除广告、作者公共 TAB/Commit 默认外联与上游更新源；并非所有安全问题已修复。** 当前已有 Git 基线 `6a13780 Initial commit`，实现处于 dirty working tree；本次助手没有 commit/push。以下旧快照的数字、证据和当时执行范围不作为当前构建/测试状态。
+
+| 历史项目 | 当前状态 |
+| --- | --- |
+| S1 公共 TAB/默认 Commit | 原 Public 模式/默认作者目标已删除；Local 默认且必须明确选模型，空选择停用无外部回退。Commit 独立：选模型本地生成，未选官方直连，不跟随 TAB |
+| S6 广告图片 SSRF | 广告模块/下载/加载路径已删除，相关入口消失；不等于其他 HTTP 入口都完成安全修复 |
+| 广告与推广 | 拉取、安装 ID 创建、关闭反馈、前端 UI/cache/localStorage、相关翻译与 marquee 依赖移除；历史真实用户数据未删除、不读复用 |
+| 上游更新 | **保留 updater 功能**；Tauri 源为空、Windows portable 源为 None，自动短路，手动/缓存安装提示“暂无更新源”；签名公钥/机制保留，未来需自己的源与正确签名 |
+| S2、S3–S5、S7–S13、Agent 正确性缺口 | **未由此次纯净化修复**；管理无鉴权、OAuth/日志/插件删除/Semble 等原结论仍须单独处理 |
+
+前端 TypeScript/Vite/i18n 检查、最终隔离单线程 Rust 全 workspace **332 项**、macOS debug 无 bundle 构建均通过，执行条件和首次并发传输断言失败见[当前验证表](<./PURE-MODE-CN.md#6-验证结果与未验证项>)。**未运行真实桌面或 Cursor E2E，也未做 Windows/Linux 原生构建。** 后台本地 TAB 不依赖官方账号，但官方 Direct 仍需登录/额度，模型 API/其他 RPC 仍可外联；**Pure 不等于 offline 或 secure**。
+
+### 如何读取历史证据
+
+历史源码以 Git 基线读取，不把当前已修改文件的行号冒充旧证据。下文的 `git show` 片段是只读定位方式；历史行范围可在该输出中查看。已删除模块不保留 dead link。未改动源码的普通链接仅方便导航，当前实现仍以当前文档为准。
+
+```bash
+# 仓库根目录；只读显示基线内容，不切换或覆盖工作区。
+git show 6a13780:server/src/cursor/services/tab.rs
+git show 6a13780:server/src/control/ads.rs
+git show 6a13780:server/src/store/settings.rs
+git show 6a13780:apps/desktop/src/shell/AppLayout.tsx
+git show 6a13780:apps/desktop/src-tauri/tauri.conf.json
+```
+
+## 1. 历史结论（改动前）
 
 ### 1.1 项目完整吗？
 
@@ -39,7 +66,7 @@
 ### 2.1 本地快照
 
 - 当前目录没有 `.git`，`git status`/`git remote` 返回“not a git repository”。不能确认它对应 GitHub 的哪次 commit，也不能证明下载后没有改动。
-- [桌面 package](<../apps/desktop/package.json#L1-L5>) 与 [Tauri 配置](<../apps/desktop/src-tauri/tauri.conf.json#L1-L5>) 标记版本 `1.0.1`；[server package](<../server/Cargo.toml#L1-L7>) 为 `0.1.0`。这是文件中的版本，不是已验证的 release/tag 身份。
+- 桌面 package（`git show 6a13780:apps/desktop/package.json`，历史 1–5 行） 与 Tauri 配置（`git show 6a13780:apps/desktop/src-tauri/tauri.conf.json`，历史 1–5 行） 标记版本 `1.0.1`；[server package](<../server/Cargo.toml#L1-L7>) 为 `0.1.0`。这是文件中的版本，不是已验证的 release/tag 身份。
 - 使用 glob 枚举到原始 605 个文件，包括隐藏配置、协议、源码、图片、技能说明和锁文件。网络入口/敏感字段做了全树检索，关键路径逐文件审读；**没有逐行审计所有传递依赖和二进制素材**。
 - 本次新增的两份文档不计入原始文件集合。原始集合指纹（对路径排序，逐项累积 `path + NUL + SHA256(file bytes).hex + LF` 后 SHA256）：
 
@@ -123,8 +150,8 @@ Cursor 客户端（拥有工作区、文件/终端工具、MCP、审批和 UI）
 | 压缩 | 手动/自动压缩、context overflow 后压缩重试 | 前缀在压缩时重置；未知 context window/超大当前输入仍可能失败；[压缩](<../server/src/run/compaction.rs>) |
 | 模型目录/账号 | 合并本地模型、部分 mock、官方响应 patch/fallback | 模型列表仍先请求官方；mock Ultra 不等于官方权益；[目录](<../server/src/cursor/services/model_catalog.rs#L257-L313>) |
 | 登录 | 若没有既有非空官方 token，会注入本地 JWT；已有官方 token 保留 | 本地 Agent 不应概括为必须官方登录；官方功能仍需有效账号/额度；[账号注入](<../server/src/local_app/account.rs#L41-L84>) |
-| TAB | 16 个 RPC 透传公共/官方/自定义服务 | 不是本地 TAB 后端；自托管 TAB 实现只链接到旧 archive，不在当前 workspace；[TAB](<../server/src/cursor/services/tab.rs>) |
-| Git Commit message | 可用配置模型本地生成 | 默认跟随 TAB 目标，diff 可能发作者服务；[Commit](<../server/src/cursor/services/commit_message.rs#L46-L67>) |
+| TAB | 16 个 RPC 透传公共/官方/自定义服务 | 不是本地 TAB 后端；自托管 TAB 实现只链接到旧 archive，不在当前 workspace；TAB（`git show 6a13780:server/src/cursor/services/tab.rs`） |
+| Git Commit message | 可用配置模型本地生成 | 默认跟随 TAB 目标，diff 可能发作者服务；Commit（`git show 6a13780:server/src/cursor/services/commit_message.rs`，历史 46–67 行） |
 | WebSearch/WebFetch | 23 源聚合搜索、HTTP 页面提取 | 不是官方完整搜索后端，无浏览器 JS 渲染，来源可反爬/失效；[搜索](<../server/src/search/federation.rs>)、[抓取](<../server/src/search/fetch.rs>) |
 | Semble | 本地代码 embedding/index/search | 首次下载模型，远程 repo 会 git clone；不替代 Cursor 官方全量索引服务；[Semble 适配](<../server/src/search/search_provider.rs>) |
 | 对外 `/byok/v1/*` API | 模型列表、三个兼容协议入口，有独立 key 校验 | key 保护仅限此 API，不能据此推断管理 API 也安全；[鉴权](<../server/src/api/byok/mod.rs#L57-L89>) |
@@ -140,7 +167,7 @@ Cursor 客户端（拥有工作区、文件/终端工具、MCP、审批和 UI）
 4. **多种 ConversationAction 未实现，运行中只 warn 后忽略。** 包括 ShellCommand/StartPlan/AsyncAskQuestionCompletion/BackgroundShell/BackgroundSubagent/SubscriptionNotification/GoalContinuation；这不是只凭 TODO 推断，当前测试也固定忽略行为。协议声明不等于支持，无反馈会让相应 UI 动作失效。[实际分支](<../server/src/cursor/conversation/runtime.rs#L397-L490>)、[测试](<../server/tests/interrupt.rs#L1361-L1418>)。
 5. **`thinking_budget_tokens` 保存但没有进入内建 Anthropic 请求。** Provider 仅设置 adaptive thinking 和 output_config effort；预算设置不会产生预期效果，旧版 Messages 兼容服务也可能不支持这些字段。[配置字段](<../server/src/model/configuration.rs#L122-L150>)、[Provider](<../server/src/provider/anthropic.rs#L303-L315>)。
 6. **图像生成功能未完成。** GenerateImage 批准后要求不存在的配置 executor；正常编译中 supports_image_generation 为 false，工具被移除。因此属于休眠能力，不应描述成已提供通用图像生成。[错误分支](<../server/src/cursor/tools/tool_call_result/interaction.rs#L112-L115>)、[工具过滤](<../server/src/cursor/prompting/compiler.rs#L36-L38>)。
-7. **模型“测试通过”不验证 Agent 工具能力。** 连接测试发送数字序列提示、tools 为空；只能验证部分请求/流式/延迟。弱 function calling 模型仍会在 Cursor Agent 中失败。[连接测试](<../server/src/control/service.rs#L419-L459>)。
+7. **模型“测试通过”不验证 Agent 工具能力。** 连接测试发送数字序列提示、tools 为空；只能验证部分请求/流式/延迟。弱 function calling 模型仍会在 Cursor Agent 中失败。连接测试（`git show 6a13780:server/src/control/service.rs`，历史 419–459 行）。
 
 ### 4.2 提示词缓存/前缀稳定的边界
 
@@ -157,11 +184,11 @@ Cursor 客户端（拥有工作区、文件/终端工具、MCP、审批和 UI）
 
 严重度表示处理顺序，不是已复现 CVSS。下面明确区分已确认数据流、条件性风险和未做利用验证的项目。
 
-### S1 — 高：公共 TAB/默认 Commit 透传工作区内容及请求凭据
+### S1 — 高：公共 TAB/默认 Commit 透传工作区内容及请求凭据（历史；原默认路径已移除）
 
-- [默认设置](<../server/src/store/settings.rs#L69-L112>) 为 Public，地址是作者公共服务。
-- [TAB 清单](<../server/src/cursor/services/tab.rs#L12-L28>) 包含 StreamCpp、RefreshTabContext、CppAppend、FSUploadFile/FSSyncFile、代码指标等。
-- [Commit 直连](<../server/src/cursor/services/commit_message.rs#L58-L67>) 复用 TAB service_url，所以 default Public 下 diff/前序 commit 等原始 RPC 同样去公共服务。
+- 默认设置（`git show 6a13780:server/src/store/settings.rs`，历史 69–112 行） 为 Public，地址是作者公共服务。
+- TAB 清单（`git show 6a13780:server/src/cursor/services/tab.rs`，历史 12–28 行） 包含 StreamCpp、RefreshTabContext、CppAppend、FSUploadFile/FSSyncFile、代码指标等。
+- Commit 直连（`git show 6a13780:server/src/cursor/services/commit_message.rs`，历史 58–67 行） 复用 TAB service_url，所以 default Public 下 diff/前序 commit 等原始 RPC 同样去公共服务。
 - [转发实现](<../server/src/api/cursor/proxy.rs#L76-L104>) 只删除 upstream URL/Host/hop-by-hop headers，**没有过滤 Authorization、Cookie、Cursor 账号头**，并原样传 body。
 
 **影响：** 作者服务器会得到该 RPC 的原始 payload；当请求包含官方账号 token 时，也会得到 token。文件具体内容/头是否每次发送取决于 Cursor 客户端版本与该请求，本次没有抓包，不断言“所有文件自动全量上传”。也没有证据证明公共服务器滥用了收到的数据。
@@ -170,10 +197,10 @@ Cursor 客户端（拥有工作区、文件/终端工具、MCP、审批和 UI）
 
 ### S2 — 高：管理 API 无鉴权，能够读写模型 Key、OAuth 和设置
 
-[管理路由](<../server/src/control/mod.rs#L112-L240>) 只有 CORS，没有 session/token/Host 校验；[模型列表](<../server/src/control/models.rs#L29-L31>) 直接返回含 api_key 的 ModelConfig；[模型对象](<../server/src/model/configuration.rs#L127-L151>) 可序列化。
+管理路由（`git show 6a13780:server/src/control/mod.rs`，历史 112–240 行） 只有 CORS，没有 session/token/Host 校验；[模型列表](<../server/src/control/models.rs#L29-L31>) 直接返回含 api_key 的 ModelConfig；[模型对象](<../server/src/model/configuration.rs#L127-L151>) 可序列化。
 
-- [CORS](<../server/src/control/mod.rs#L243-L284>) 除 localhost/Tauri，还允许任意私网/链路本地 IP Origin。CORS 不是鉴权；其他本地进程不受浏览器 CORS 限制。浏览器的 private-network 限制可能降低部分网页利用，但不能作为服务鉴权。
-- [默认监听](<../server/src/config.rs#L71-L75>) 是 loopback，桌面也是 loopback，这是有效降低暴露面的措施；但 `CURSOR_LISTEN_ADDR` 可以设非 loopback，管理和推理 API 共用同一 listener，[组装](<../server/src/app.rs#L55-L91>)。Docker 暴露也必须重新审查。
+- CORS（`git show 6a13780:server/src/control/mod.rs`，历史 243–284 行） 除 localhost/Tauri，还允许任意私网/链路本地 IP Origin。CORS 不是鉴权；其他本地进程不受浏览器 CORS 限制。浏览器的 private-network 限制可能降低部分网页利用，但不能作为服务鉴权。
+- [默认监听](<../server/src/config.rs#L71-L75>) 是 loopback，桌面也是 loopback，这是有效降低暴露面的措施；但 `CURSOR_LISTEN_ADDR` 可以设非 loopback，管理和推理 API 共用同一 listener，组装（`git show 6a13780:server/src/app.rs`，历史 55–91 行）。Docker 暴露也必须重新审查。
 - 可以读取 Key、改模型目标、启停接管、清数据、操作 OAuth 资源。`/byok/v1/*` 的 Bearer key 不保护这些管理路由。
 
 **建议：** 服务端管理鉴权、严格 Host/Origin/CSRF 边界、默认只 loopback，敏感值默认不出列表；公开模型 API 与管理面隔离。修复前不要将端口暴露网络，也不要把不可信本地网页作为有权限的管理 origin。
@@ -201,7 +228,7 @@ PluginRegistry 将 CallRecorder 传给 provider invoke
   → 详细模式下落盘 → 未鉴权 call detail 可读取
 ```
 
-证据：[传递 recorder](<../server/src/plugin/registry.rs#L238-L272>)、[自动刷新](<../server/plugins/build-in/antigravity-auth/provider.ts#L628-L639>)、[刷新 body/响应](<../server/plugins/build-in/antigravity-auth/resources.ts#L374-L420>)、[请求记录](<../server/src/plugin/worker.rs#L421-L440>)、[认领/记录](<../server/src/plugin/worker.rs#L517-L565>)、[详细落盘](<../server/src/store/llm_calls.rs#L101-L129>)、[详情返回](<../server/src/control/service.rs#L629-L642>)。
+证据：[传递 recorder](<../server/src/plugin/registry.rs#L238-L272>)、[自动刷新](<../server/plugins/build-in/antigravity-auth/provider.ts#L628-L639>)、[刷新 body/响应](<../server/plugins/build-in/antigravity-auth/resources.ts#L374-L420>)、[请求记录](<../server/src/plugin/worker.rs#L421-L440>)、[认领/记录](<../server/src/plugin/worker.rs#L517-L565>)、[详细落盘](<../server/src/store/llm_calls.rs#L101-L129>)、详情返回（`git show 6a13780:server/src/control/service.rs`，历史 629–642 行）。
 
 **触发条件：** 配置 Google 插件账号、模型调用发生自动刷新、详细日志开启。初始迁移的[详细日志默认 false](<../server/migrations/0001_initial.sql#L176-L181>) 降低默认泄漏概率，但用户可开启，已有日志不会因关开关自动消失。登录或普通手动刷新不必然走同一 recorder 链。
 
@@ -221,9 +248,9 @@ plugin_id = "."  → root.join(".")  → 全部插件 data
 
 **建议：** 插件 ID 使用 manifest 严格语法，排除 dot components；操作已知 entry；解析后的目标必须属于预期的单个子目录；破坏性接口同样需要 S2 鉴权。
 
-### S6 — 中高：广告图片 URL 缺少私网/重定向边界
+### S6 — 中高：广告图片 URL 缺少私网/重定向边界（历史；广告入口已删除）
 
-[广告 URL 校验](<../server/src/control/ads.rs#L109-L117>) 与 [validate_http_url](<../server/src/control/ads.rs#L253-L261>) 只确认 HTTP(S)+host；[图片下载](<../server/src/control/ads.rs#L165-L205>) 使用默认网络 client，未执行私网地址检查，也没有显式禁重定向。
+广告 URL 校验（`git show 6a13780:server/src/control/ads.rs`，历史 109–117 行） 与 validate_http_url（`git show 6a13780:server/src/control/ads.rs`，历史 253–261 行） 只确认 HTTP(S)+host；图片下载（`git show 6a13780:server/src/control/ads.rs`，历史 165–205 行） 使用默认网络 client，未执行私网地址检查，也没有显式禁重定向。
 
 广告服务器若返回 loopback/私网图片 URL，服务端就会尝试访问。它并非普通不可信 Cursor tool 直接指定目标，而是**对广告服务被入侵/恶意返回的信任边界不足**。响应须通过图片 MIME/10MiB 校验才能缓存，但请求在此前已发出，仍有 SSRF/内部 GET 副作用风险。下载失败保留远程 image URL，桌面还可能直接加载它。
 
@@ -252,7 +279,7 @@ plugin_id = "."  → root.join(".")  → 全部插件 data
 
 [capabilities](<../apps/desktop/src-tauri/capabilities/default.json#L5-L26>) 允许 main window 的所有 loopback 端口源调用相关原生能力；[open_terminal_with_command](<../apps/desktop/src-tauri/src/desktop.rs#L42-L81>) 在 Windows/Linux 将输入交 shell 执行，macOS 只打开 Terminal、忽略 command。
 
-当前正常调用用途是 CA 安装指导；未找到“广告点击直接偷偷执行系统命令”的完整链。广告渲染不等于脚本执行；[CSP](<../apps/desktop/src-tauri/tauri.conf.json#L14-L18>) 的 default-src self 有防护。风险是未来 XSS/不可信 loopback 页面进入有权限窗口后影响扩大。
+当前正常调用用途是 CA 安装指导；未找到“广告点击直接偷偷执行系统命令”的完整链。广告渲染不等于脚本执行；CSP（`git show 6a13780:apps/desktop/src-tauri/tauri.conf.json`，历史 14–18 行） 的 default-src self 有防护。风险是未来 XSS/不可信 loopback 页面进入有权限窗口后影响扩大。
 
 **建议：** 原生接口只接受明确 operation，不接受任意 shell 文本；把有权限 URL scope 限到实际应用 origin/path；不载入不可信页面到 main Webview。
 
@@ -296,23 +323,23 @@ plugin_id = "."  → root.join(".")  → 全部插件 data
 | 类别/目标 | 触发 | 发送数据 | 停止/配置边界 | 源码 |
 | --- | --- | --- | --- | --- |
 | 你配置的模型 API URL（HTTP/HTTPS） | Agent、本地 Commit、连接测试、对外模型 API | API key/custom headers、prompt/history、工具、图像及参数 | 每模型 URL/key/protocol 配置；禁用调用 | [ProviderRouter](<../server/src/provider/router.rs>)、[Chat 请求](<../server/src/provider/openai_chat.rs#L75-L101>) |
-| 配置服务的模型发现 endpoint | 点击“获取模型” | 配置 API key/headers | 不点击则不触发此发现 | [发现模型](<../server/src/control/service.rs>) |
+| 配置服务的模型发现 endpoint | 点击“获取模型” | 配置 API key/headers | 不点击则不触发此发现 | 发现模型（`git show 6a13780:server/src/control/service.rs`） |
 | `https://api2.cursor.sh` / original `*.cursor.sh` | 官方模型、未接管 RPC、账号/模型列表/Statsig 初始化等 | 原 Cursor 请求 headers/body（包括 token 和元数据） | 没有统一“完全断开官方”模式；本地目录 fallback 也会先尝试官方 | [官方转发](<../server/src/api/cursor/proxy.rs>)、[Statsig](<../server/src/cursor/services/analytics.rs#L27-L47>) |
-| `https://tab.leokun.cn` 的 16 个 TAB RPC | 接管启用且 TAB=Public（默认），Cursor 触发补全/同步 | 原始 TAB context、文件上传/同步、指标及携带的授权头 | 系统设置 TAB → Direct/自托管 Custom；不是自动改成本地模型 | [TAB 清单](<../server/src/cursor/services/tab.rs>) |
-| 同 TAB 目标的 WriteGitCommitMessage | Commit 未选本地模型（默认），生成提交信息 | diff/commit 等原始 RPC 与原 headers | Commit 选择本地模型；或 TAB Direct/Custom | [Commit forward](<../server/src/cursor/services/commit_message.rs#L46-L67>) |
-| `https://tab.leokun.cn/api/v1/ads?placement=menu` | 桌面布局挂载、聚焦/可见、语言变化；10 秒请求节流（不是每 10 秒定时） | 持久安装 UUID、OS、app version、语言、禁用广告 IDs，及网络 IP | 未发现全局禁止广告拉取设置；禁用单个广告不等于停止请求 | [广告请求](<../server/src/control/service.rs#L285-L313>)、[自动触发](<../apps/desktop/src/shell/AppLayout.tsx#L98-L135>) |
-| 同广告 `/api/v1/ads/{id}/dismissals` POST | 确认关闭单个广告（原因可空；留空仍发请求） | 安装 ID、OS、版本、广告 ID、reason | 不确认关闭则不发此 POST；不等于无广告 GET | [关闭反馈](<../server/src/control/service.rs#L316-L345>)、[UI](<../apps/desktop/src/shell/AppLayout.tsx#L167-L185>) |
-| 广告返回的 HTTP(S) image URLs | 拉取成功后下载未缓存图片；失败时 Webview 可直接读远图 | 普通 GET/客户端 IP；不是模型 key 注入请求 | 图片本地缓存减少重复下载；远程目标由广告服务决定 | [cache_images](<../server/src/control/ads.rs#L121-L175>) |
-| 广告返回 button URL | 用户点击推广按钮 | 系统浏览器访问，目标由服务返回 | HTTP(S) 限制，无固定域名 allowlist | [广告协议](<../server/src/control/ads.rs#L86-L106>)、[打开浏览器](<../apps/desktop/src-tauri/src/desktop.rs#L90-L107>) |
-| GitHub `leookun/cursor-byok/releases/latest/download/latest.json` | 应用启动；6 小时节流的 focus/online/visibility/timer 自动检查 | updater 版本/平台相关请求元数据/IP；未见注入模型 key | 自动检查代码存在；不是自动安装 | [App](<../apps/desktop/src/App.tsx#L53-L84>)、[updater 配置](<../apps/desktop/src-tauri/tauri.conf.json#L34-L42>) |
-| 同仓库 `portable-latest.json` | Windows portable 更新检查路径 | 同上 | Windows 专用；安装动作另行触发 | [portable update](<../apps/desktop/src-tauri/src/update/mod.rs#L25-L27>) |
-| 更新 manifest 返回的包 URL/CDN | 用户选择安装更新 | 普通更新下载/IP | Tauri updater 公钥验签；仍信任发布者可提供签名程序 | [下载/安装](<../apps/desktop/src-tauri/src/update/mod.rs#L81-L126>) |
+| `https://tab.leokun.cn` 的 16 个 TAB RPC | 接管启用且 TAB=Public（默认），Cursor 触发补全/同步 | 原始 TAB context、文件上传/同步、指标及携带的授权头 | 系统设置 TAB → Direct/自托管 Custom；不是自动改成本地模型 | TAB 清单（`git show 6a13780:server/src/cursor/services/tab.rs`） |
+| 同 TAB 目标的 WriteGitCommitMessage | Commit 未选本地模型（默认），生成提交信息 | diff/commit 等原始 RPC 与原 headers | Commit 选择本地模型；或 TAB Direct/Custom | Commit forward（`git show 6a13780:server/src/cursor/services/commit_message.rs`，历史 46–67 行） |
+| `https://tab.leokun.cn/api/v1/ads?placement=menu` | 桌面布局挂载、聚焦/可见、语言变化；10 秒请求节流（不是每 10 秒定时） | 持久安装 UUID、OS、app version、语言、禁用广告 IDs，及网络 IP | 未发现全局禁止广告拉取设置；禁用单个广告不等于停止请求 | 广告请求（`git show 6a13780:server/src/control/service.rs`，历史 285–313 行）、自动触发（`git show 6a13780:apps/desktop/src/shell/AppLayout.tsx`，历史 98–135 行） |
+| 同广告 `/api/v1/ads/{id}/dismissals` POST | 确认关闭单个广告（原因可空；留空仍发请求） | 安装 ID、OS、版本、广告 ID、reason | 不确认关闭则不发此 POST；不等于无广告 GET | 关闭反馈（`git show 6a13780:server/src/control/service.rs`，历史 316–345 行）、UI（`git show 6a13780:apps/desktop/src/shell/AppLayout.tsx`，历史 167–185 行） |
+| 广告返回的 HTTP(S) image URLs | 拉取成功后下载未缓存图片；失败时 Webview 可直接读远图 | 普通 GET/客户端 IP；不是模型 key 注入请求 | 图片本地缓存减少重复下载；远程目标由广告服务决定 | cache_images（`git show 6a13780:server/src/control/ads.rs`，历史 121–175 行） |
+| 广告返回 button URL | 用户点击推广按钮 | 系统浏览器访问，目标由服务返回 | HTTP(S) 限制，无固定域名 allowlist | 广告协议（`git show 6a13780:server/src/control/ads.rs`，历史 86–106 行）、[打开浏览器](<../apps/desktop/src-tauri/src/desktop.rs#L90-L107>) |
+| GitHub `leookun/cursor-byok/releases/latest/download/latest.json` | 应用启动；6 小时节流的 focus/online/visibility/timer 自动检查 | updater 版本/平台相关请求元数据/IP；未见注入模型 key | 自动检查代码存在；不是自动安装 | [App](<../apps/desktop/src/App.tsx#L53-L84>)、updater 配置（`git show 6a13780:apps/desktop/src-tauri/tauri.conf.json`，历史 34–42 行） |
+| 同仓库 `portable-latest.json` | Windows portable 更新检查路径 | 同上 | Windows 专用；安装动作另行触发 | portable update（`git show 6a13780:apps/desktop/src-tauri/src/update/mod.rs`，历史 25–27 行） |
+| 更新 manifest 返回的包 URL/CDN | 用户选择安装更新 | 普通更新下载/IP | Tauri updater 公钥验签；仍信任发布者可提供签名程序 | 下载/安装（`git show 6a13780:apps/desktop/src-tauri/src/update/mod.rs`，历史 81–126 行） |
 | GitHub `denoland/deno/releases/download/v2.9.6/deno-<target>.zip` | 用户显式初始化插件运行时 | 平台包 GET/IP | 不初始化不会下载；固定 SHA256 后才解压执行；Deno 自更新检查关闭 | [asset](<../server/src/plugin/asset.rs>)、[installation](<../server/src/plugin/installation.rs>) |
 | Hugging Face `minishlab/potion-code-16M-v2/resolve/main/{model.safetensors,tokenizer.json}` | 首次 Semble 使用且本地资产缺失/hash 不符 | 普通模型文件下载；未见上传代码给 HF 的实现 | 本地缓存/hash 正确则不再下载；redirect CDN 由上游决定 | [模型资产](<../crates/semble-core/src/embedding/assets.rs#L13-L83>) |
 | repo 指定远程 git host | Semble/benchmark 使用远程 repo | git clone/fetch 网络元数据；git 可能按自身配置使用凭据 | 用本地 repo 避免该网络步骤 | [remote git](<../crates/semble-core/src/source/remote_git.rs>) |
 | 用户提供的网页 URL | Cursor WebFetch Approved 后 | URL/UA/语言；本服务不附加模型 key | Cursor 审批；公网/DNS/redirect 检查及代理例外 | [interaction](<../server/src/cursor/tools/tool_call_dispatch/interaction.rs#L25-L61>)、[fetch](<../server/src/search/fetch.rs>) |
 
-广告请求上的安装 UUID 在[installation_id](<../server/src/store/settings.rs#L281-L301>) 生成后持久保存。它可以关联同一安装的请求，不能采信“随机 ID 就不涉及隐私”的广告注释来替代实际数据分析。
+广告请求上的安装 UUID 在installation_id（`git show 6a13780:server/src/store/settings.rs`，历史 281–301 行） 生成后持久保存。它可以关联同一安装的请求，不能采信“随机 ID 就不涉及隐私”的广告注释来替代实际数据分析。
 
 ### 6.2 WebSearch：一次批准会并发发送给 23 个来源
 
@@ -384,13 +411,13 @@ OAuth callback 本机随机端口、有 state 与 PKCE、一次性完成/超时�
 
 | 类别 | 目标与触发 | 结论/证据 |
 | --- | --- | --- |
-| npm 安装 | 当前 lock 的 resolved host 均为 registry.npmjs.org；部分依赖 install script 可能有额外行为 | 没有执行安装；有 integrity 不等于包无恶意。hasInstallScript：@parcel/watcher、fsevents；[lock](<../apps/desktop/package-lock.json>) |
+| npm 安装 | 当前 lock 的 resolved host 均为 registry.npmjs.org；部分依赖 install script 可能有额外行为 | 没有执行安装；有 integrity 不等于包无恶意。hasInstallScript：@parcel/watcher、fsevents；lock（`git show 6a13780:apps/desktop/package-lock.json`） |
 | Cargo 构建 | crates.io registry/index、下载包和 build scripts | lock 有 checksums；未递归源码审计依赖/公告。native build/protoc 等 build dependency 是构建链，不是运行时广告；[server Cargo](<../server/Cargo.toml>) |
 | Docker/CI/release | 拉基础镜像、系统包、Rust/npm，GitHub Actions/发布 assets | 只在用户执行构建/CI 时；不是运行启动暗门；[Dockerfile](<../Dockerfile>)、[CI](<../.github/workflows/ci.yml>)、[Release](<../.github/workflows/release.yml>) |
 | cursor-capture 抓包工具 | 固定 api2.cursor.sh；界面从 cdn.jsdelivr.net 加载 Monaco 0.56.0 | 启动会打开浏览器、透传并落盘；当前缺生成 Go 包，不随主应用自动启动；[代理](<../support/cursor-capture/server.go#L106-L142>)、[CDN](<../support/cursor-capture/web/index.html#L136>) |
 | protocol extractor | 可选 `npx prettier` | 直接用工具且未 skip-format 时可能下载安装 formatter；默认封装脚本使用 skip-format。会替换协议输出目录，不要当无副作用检查；[extractor](<../support/cursor-protocol-extractor/extractor/main.go#L100-L119>)、[脚本](<../support/cursor-protocol-extractor/scripts/extract.sh>) |
 | benchmark | case 中远程 repo、git fetch/clone、codegraph adapter/本机命令 | 仅显式运行 benchmark；不等于生产自动上传代码；[benchmark](<../support/benchmarks/semble/README.md>) |
-| README 展示 | shields.io 徽章；GitHub Baocode 首行推广、docs.leokun.cn、release/issues、Telegram 等链接 | 渲染 Markdown 徽章或点击才访问；桌面运行广告另有代码实现。只删 README 首行不会移除运行广告；[中文 README](<../README-CN.md#L1-L14>) |
+| README 展示 | shields.io 徽章；GitHub Baocode 首行推广、docs.leokun.cn、release/issues、Telegram 等链接 | 渲染 Markdown 徽章或点击才访问；桌面运行广告另有代码实现。只删 README 首行不会移除运行广告；中文 README（`git show 6a13780:README-CN.md`，历史 1–14 行） |
 
 浏览器打开普通链接时，会按其自身会话/cookie/网络设置发请求；这与 Rust 服务主动插入模型 Key 是不同的数据路径。测试里的 example.com/localhost 样例和 `$schema` URL 不应全部误报成生产启动请求。
 
@@ -409,7 +436,7 @@ OAuth callback 本机随机端口、有 state 与 PKCE、一次性完成/超时�
 
 ## 8. 针对“纯本地、只访问自己的模型 API”的处理清单
 
-**这里只列建议，不代表本次已经实施。**
+**以下保留首次任务的历史建议，不代表全部已实施。** 当前仅公共 TAB/Commit 默认路径、广告与上游更新源的处理已落实；更新策略按用户选择为“保留 updater、无源短路”，不是删除 updater 或改成只手动。其余建议仍待独立处理。
 
 ### 第一优先级：泄漏与破坏性操作
 

@@ -95,7 +95,7 @@ let proxySettings: ProxySettings = {
   username: "",
   has_password: false,
 };
-let tabSettings: TabSettings = { mode: "public", address: "" };
+let tabSettings: TabSettings = { mode: "local", address: "", model_id: "" };
 let storage: StatisticsStorage = { call_count: calls.length, trace_count: calls.length };
 
 export function installDemoApi() {
@@ -110,7 +110,6 @@ export function installDemoApi() {
     const method = (init?.method ?? (input instanceof Request ? input.method : "GET")).toUpperCase();
     const body = await readBody(input, init);
 
-    if (path === "/promotions") return json({ slots: [] });
     if (path === "/models" && method === "GET") return json(models);
     if (path === "/models" && method === "POST") return json(models);
     if (path === "/models/order") return json(models);
@@ -182,7 +181,6 @@ export function installDemoApi() {
       }
       return empty();
     }
-    if (path.endsWith("/dismissals")) return empty();
 
     return json({ message: `Unhandled demo endpoint: ${method} ${path}` }, 404);
   };

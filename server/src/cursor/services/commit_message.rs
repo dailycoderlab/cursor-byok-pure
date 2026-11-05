@@ -50,21 +50,10 @@ pub async fn write_git_commit_message(
 ) -> Result<Response<Body>> {
     let settings = registry.store().commit_settings().await?;
     if settings.is_direct() {
-        return forward_direct(&registry, upstream, request).await;
+        // Commit settings are independent of TAB; never send staged diffs to a TAB service.
+        return proxy::forward(Extension(upstream), request).await;
     }
     generate_local(&registry, request, settings).await
-}
-
-async fn forward_direct(
-    registry: &TransportRegistry,
-    upstream: CursorProxy,
-    request: Request<Body>,
-) -> Result<Response<Body>> {
-    let settings = registry.store().tab_settings().await?;
-    match settings.service_url() {
-        Some(service_url) => proxy::forward_to_service(&upstream, request, service_url).await,
-        None => proxy::forward(Extension(upstream), request).await,
-    }
 }
 
 async fn generate_local(

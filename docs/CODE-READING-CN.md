@@ -1,6 +1,6 @@
 # Cursor BYOK 源码阅读路径
 
-> 依据当前下载的源码快照整理，日期：2026-11-05。阅读目标是理解“Cursor 请求如何变成自己的模型 API 请求”，不是从头顺读所有文件。安全性与完整性结论见[项目审查报告](<./PROJECT-AUDIT-CN.md>)。本文描述现有结构，不提出代码重构，也不执行配置、证书或代理修改。
+> 依据 2026-11-05 当前工作区实现整理（Git 基线 `6a13780`，有未提交改动）。目标是理解“Cursor 请求如何变成自己的模型 API 请求”，不是顺读所有文件。默认 TAB/广告/updater 当前行为见[纯净模式说明](<./PURE-MODE-CN.md>)；[项目审查报告](<./PROJECT-AUDIT-CN.md>)第 1–9 节是改动前历史证据。本文描述当前结构，不执行应用启动、配置、证书、测试或构建操作。
 
 ## 1. 先建立正确的项目定位
 
@@ -29,7 +29,7 @@ server/src/bin/cursor-server.rs                apps/desktop/src-tauri/src/main.r
                  ProviderRouter → 你配置的 API
 ```
 
-还存在 Cursor 官方转发、公共 TAB、广告、更新、搜索、模型文件下载和 OAuth 插件这些旁路。先读懂核心网关，再逐一审查旁路，不能用“本地运行”推导“不会外联”。
+默认 TAB 已改为内置基本补全，必须明确选模型；广告链路已删除，更新机制保留但源为空。仍有 Cursor 官方转发、显式 Direct/Custom TAB、搜索、Semble 模型下载和 OAuth 插件旁路，不能用“本地运行”推导“不会外联”。
 
 ## 2. 当前目录就是架构
 
@@ -44,8 +44,8 @@ cursor-byok-pure/
 │   │   ├── index.tsx                       # React 挂载入口，15 lines
 │   │   ├── App.tsx                         # 页面路由与自动检查更新，87 lines
 │   │   ├── features/                       # models/settings/plugins/calls/home 业务页面
-│   │   ├── shell/                          # 应用窗口布局与广告 UI
-│   │   ├── shared/api.ts                   # 管理 API 类型及 HTTP 客户端，563 lines
+│   │   ├── shell/                          # 应用窗口布局；原 ads/ 已删除
+│   │   ├── shared/api.ts                   # 管理 API 类型及 HTTP 客户端，553 lines
 │   │   ├── shared/store/                   # 页面全局状态及更新状态
 │   │   ├── shared/native/                  # 桌面原生能力调用
 │   │   ├── shared/ui/                      # UI 组件，不承担模型推理
@@ -53,15 +53,16 @@ cursor-byok-pure/
 │   └── src-tauri/
 │       ├── src/desktop.rs                  # 服务/窗口/退出生命周期，320 lines
 │       ├── src/startup.rs                  # 启动诊断与日志
-│       ├── src/update/                     # 更新检查、签名验证与程序替换
+│       ├── src/update/                     # 保留验签/安装/替换；portable 源为 None
+│       ├── tauri.conf.json                 # updater 源为空；pubkey/机制不变
 │       └── capabilities/default.json       # Webview 的原生能力权限边界
 ├── server/
 │   ├── src/
 │   │   ├── bin/cursor-server.rs            # 独立服务器 main，16 lines
 │   │   ├── config.rs                       # 进程配置/数据目录/监听地址，170 lines
-│   │   ├── app.rs                          # 依赖组装与服务启停，208 lines
+│   │   ├── app.rs                          # 依赖组装与服务启停，207 lines
 │   │   ├── api/
-│   │   │   ├── cursor/handlers.rs          # RPC 路由及本地/官方分流，392 lines
+│   │   │   ├── cursor/handlers.rs          # RPC 分流/未知 TAB 拒绝，451 lines
 │   │   │   ├── cursor/bidi.rs              # 上行 BidiAppend 解码与入队，211 lines
 │   │   │   ├── cursor/run_sse.rs           # 下行事件流与断开处理，232 lines
 │   │   │   ├── cursor/proxy.rs             # 官方 Cursor 请求转发
@@ -75,7 +76,12 @@ cursor-byok-pure/
 │   │   │   ├── prompting/                  # 读取 prompt/mode/tool 配置并组装提示词
 │   │   │   ├── checkpoint/                 # Cursor ConversationState 与本地历史互转
 │   │   │   ├── tools/                      # 工具派发、审批、客户端执行结果与重放
-│   │   │   └── services/                   # 模型目录、账号、TAB、知识、指标等 RPC
+│   │   │   └── services/                   # 模型目录、账号、知识、指标等 RPC
+│   │   │       └── tab/                    # 内置基本 TAB，共 852 生产行（不含独立测试）
+│   │   │           ├── mod.rs              # RPC/模式/元数据/单并发，285 lines
+│   │   │           ├── proto.rs            # 手写最小 TAB wire 子集，150 lines
+│   │   │           ├── context.rs          # 请求快照/UTF-16/CRLF/当前行替换，215 lines
+│   │   │           └── completion.rs       # 单次 provider/期限/取消/Connect 输出，202 lines
 │   │   ├── run/                            # 与 Cursor/provider 无关的 Agent 循环
 │   │   │   ├── engine.rs                   # 推理→工具→继续/压缩/终止，1066 lines
 │   │   │   ├── port.rs                     # Run 与适配器之间的 command/event 通道
@@ -93,7 +99,7 @@ cursor-byok-pure/
 │   │   │   └── recorder.rs                 # 调用耗时、token、请求/响应记录
 │   │   ├── store/                          # SQLite Repository 与写入协调
 │   │   │   └── sqlite.rs                   # 建连接池、WAL、外键、迁移，49 lines
-│   │   ├── control/                        # 模型/设置/插件/记录/接管/广告管理 HTTP API
+│   │   ├── control/                        # 模型/设置/插件/记录/接管 API；ads.rs 已删除
 │   │   ├── network.rs                      # 网络代理配置与可复用 outbound clients
 │   │   ├── plugin/                         # Deno 插件发现、沙箱、OAuth、资源与网络宿主
 │   │   └── search/                         # 网页搜索/抓取以及 Semble 调用适配
@@ -106,7 +112,7 @@ cursor-byok-pure/
 └── support/                                # 非主应用：协议提取、流量抓包、搜索 benchmark
 ```
 
-现有说明中使用的 `server/src/harness`、`cursor/request` 等名称，不是当前快照的真实目录：对应阅读入口是 `local_app` 和 `cursor/compile`。不要沿旧名称寻找不存在的模块。
+旧说明的 `server/src/harness`、`cursor/request` 不是当前真实目录：对应 `local_app` 和 `cursor/compile`。原 51 行 `cursor/services/tab.rs` 已拆成上述 `tab/` 子树并删除，后端广告模块和前端 ads/ 也已删除；没有保留旧入口/配置迁移。
 
 ## 3. 最短主线：先读这 12 个入口
 
@@ -174,8 +180,8 @@ api/cursor/handlers.rs
 
 相关细节：
 
-- [代理接管路径](<../server/src/local_app/proxy.rs#L109-L196>)：只拦截 Cursor 域名；非本地路径仍由代理转发，不应把这看作断网隔离。
-- [本地/官方分流](<../server/src/api/cursor/handlers.rs#L228-L301>)：依据配置模型标识，不是任意一个 Cursor 模型名称都能直接走自定义 API。
+- [代理接管路径](<../server/src/local_app/proxy.rs>)：只拦截 Cursor 域名；非本地路径仍由代理转发，不应把这看作断网隔离。
+- [本地/官方分流](<../server/src/api/cursor/handlers.rs>)：依据配置模型标识，不是任意一个 Cursor 模型名称都能直接走自定义 API。
 - [上行顺序](<../server/src/cursor/transport/inbox.rs>)：处理序号、重复或乱序，先读它的测试再看内部细节。
 - [下行订阅和关闭](<../server/src/api/cursor/run_sse.rs>)、[输出聚合](<../server/src/cursor/transport/output.rs>)：网络流断开属于 transport 行为，不能简单等同于 conversation 历史被删掉。
 
@@ -243,14 +249,14 @@ Cursor RequestContext / selected_context / blobs
 
 ### 6.3 工具在哪里执行
 
-[工具派发入口](<../server/src/cursor/tools/tool_call_dispatch/mod.rs#L34-L69>) 最适合读这一部分。
+[工具派发入口](<../server/src/cursor/tools/tool_call_dispatch/mod.rs>) 最适合读这一部分。
 
 | 工具组 | 执行边界 | 阅读入口 |
 | --- | --- | --- |
 | Shell/Read/Delete/Grep/Glob/ReadLints/Task/MCP | 发协议给 Cursor，等 Exec/stream result | [exec 派发](<../server/src/cursor/tools/tool_call_dispatch/exec.rs>)、[工具编码](<../server/src/cursor/tools/codec/request.rs>) |
 | Write/StrReplace/EditNotebook | 本地组装编辑协议，实际工作区操作交给 Cursor | [编辑派发](<../server/src/cursor/tools/tool_call_dispatch/edit.rs>) |
 | AskQuestion/SwitchMode/CreatePlan | Cursor 交互返回结果 | [交互派发](<../server/src/cursor/tools/tool_call_dispatch/interaction.rs>) |
-| WebSearch/WebFetch | 先收到 Cursor Approved，然后本地服务执行 HTTP | [交互续接](<../server/src/cursor/tools/tool_call_dispatch/interaction.rs#L25-L61>)、[search](<../server/src/search/mod.rs>) |
+| WebSearch/WebFetch | 先收到 Cursor Approved，然后本地服务执行 HTTP | [交互续接](<../server/src/cursor/tools/tool_call_dispatch/interaction.rs>)、[search](<../server/src/search/mod.rs>) |
 | TodoWrite/UpdateCurrentStep | 服务端构造结果/状态展示 | [本地派发](<../server/src/cursor/tools/tool_call_dispatch/local.rs>) |
 | SembleSearch/SembleFindRelated | 服务进程直接访问指定 repo 并本地索引 | [搜索派发](<../server/src/cursor/tools/tool_call_dispatch/search.rs>)、[Semble 适配](<../server/src/search/search_provider.rs>) |
 | 未知工具 | 兼容层返回失败，而不是自动增加执行能力 | [兼容层](<../server/src/cursor/tools/compat.rs>) |
@@ -292,13 +298,29 @@ OAuth/导入 → private resource → 本地 JSON 存储
   → 选择账号/刷新 token/同步模型 → provider invoke
 ```
 
-读 [PluginRegistry](<../server/src/plugin/registry.rs>) 时不要一口气读完 1374 行：按“发现→资源 OAuth/导入→模型计划→stream→HostContext”的函数分组读。网络安全边界在 [worker](<../server/src/plugin/worker.rs#L467-L527>)；凭据在 [插件数据存储](<../server/src/plugin/data.rs>) 与 [资源 state](<../server/src/plugin/state.rs>)。
+读 [PluginRegistry](<../server/src/plugin/registry.rs>) 时不要一口气读完 1374 行：按“发现→资源 OAuth/导入→模型计划→stream→HostContext”的函数分组读。网络安全边界在 [worker](<../server/src/plugin/worker.rs>)；凭据在 [插件数据存储](<../server/src/plugin/data.rs>) 与 [资源 state](<../server/src/plugin/state.rs>)。
 
 新增一种不兼容 OpenAI/Anthropic 的 API 需要新 provider 或插件；填写不同 key 不能自动适配任意协议。修改提示词则从 prompt/compile 开始，不要在每个 provider 里独立改历史。
 
+### 6.6 内置 TAB：不是另一个 Agent Run
+
+```text
+TAB 设置 UI → store/settings.rs（cursor_tab_service，旧键不读）
+Cursor → local_app/proxy.rs（非 Direct 的已识别 TAB）
+  → tab/mod.rs（Local/Direct/Custom，Local 空模型直接停用）
+  → tab/context.rs（请求自带当前文件，裁剪 prefix/suffix；不读磁盘）
+  → tab/completion.rs → 已选 provider（单次/无工具/无队列/短期限）
+  → 原当前行替换 → Connect 流 → Cursor 显示/接受（待实机）
+      响应丢弃 → cancel provider → 释放单并发许可
+```
+
+按 [TAB RPC](<../server/src/cursor/services/tab/mod.rs>) → [最小协议](<../server/src/cursor/services/tab/proto.rs>) → [快照和范围](<../server/src/cursor/services/tab/context.rs>) → [生成/取消](<../server/src/cursor/services/tab/completion.rs>) → [TAB fixtures](<../server/tests/tab_service.rs>) 阅读。它没有会话/checkpoint/工具反馈循环，生命周期归同一个桌面 Rust App，不另起 Node/Go 服务。
+
+重点检查：UTF-16 光标与 CRLF、整行替换仍保留 prefix/suffix、缺 filesync 内容必须重传；文件同步禁用、下一光标预测空流、未知已识别 TAB fail closed。classifier 有效模型时 `should_noop=false`，仅放行基本建议，不是 learned ranking。metadata 的正常 `api2.cursor.sh` origin 用于现有 relay，不是 Local 官方 fallback。其他名字/RPC 不被全局网络阻断，默认 256 tokens 也可能被用户额外参数覆盖而非费用上限。完整设置/能力矩阵见[纯净模式说明](<./PURE-MODE-CN.md>)。
+
 ## 7. 用测试代替猜状态
 
-这些测试存在，但本次机器没有 Rust 工具链，**未执行以下 Rust 测试**。
+下表是源码学习入口。最终隔离单线程 Rust 全 workspace **332 项**与格式检查通过，包括 commit_message 5、external_api 12、pure_mode 8、tab_service 21；前端检查/i18n 和 macOS debug 无 bundle 构建也通过。执行条件及首次并发传输断言失败见[验证表](<./PURE-MODE-CN.md#6-验证结果与未验证项>)。仍没有真实 Cursor/模型/CA 验收，构建产物未运行。
 
 | 要理解的行为 | 优先阅读的测试 |
 | --- | --- |
@@ -312,6 +334,8 @@ OAuth/导入 → private resource → 本地 JSON 存储
 | 历史投影与前缀局部约束 | [prefix_stability](<../server/tests/prefix_stability.rs>) |
 | 失败是否传播、连接怎样结束 | [error_lifecycle](<../server/tests/error_lifecycle.rs>) |
 | 对外兼容 API 的 key 校验与协议转换 | [external_api](<../server/tests/external_api.rs>) |
+| Local TAB 预算/范围/取消、metadata/同步禁用 | [tab_service](<../server/tests/tab_service.rs>) |
+| 旧配置隔离、无广告/无作者 TAB、Commit 独立 | [pure_mode](<../server/tests/pure_mode.rs>) |
 | 本地规则注入与知识同步 | [local_rules_context](<../server/tests/local_rules_context.rs>)、[knowledge_rules](<../server/tests/knowledge_rules.rs>) |
 
 推荐方法：选一个测试，先读 arrange 中的 protobuf 输入，再读 FakeProvider 输出，最后看期望的 AgentServerMessage/checkpoint。这样可以用很小的例子理解真实循环。
@@ -321,9 +345,9 @@ OAuth/导入 → private resource → 本地 JSON 存储
 | 主题 | 入口 | 必须问的问题 |
 | --- | --- | --- |
 | 官方混用/默认模型 | [model_catalog](<../server/src/cursor/services/model_catalog.rs>)、[account](<../server/src/cursor/services/account.rs>) | 本地 RPC 是否仍先请求官方？ |
-| 默认 TAB | [TAB 服务](<../server/src/cursor/services/tab.rs>)、[设置默认值](<../server/src/store/settings.rs>) | 补全、文件同步和账号 token 发给谁？ |
-| 广告 | [广告服务](<../server/src/control/ads.rs>)、[ControlService](<../server/src/control/service.rs#L285-L345>)、[AppLayout 自动触发](<../apps/desktop/src/shell/AppLayout.tsx#L98-L185>)、[AdMenu](<../apps/desktop/src/shell/ads/AdMenu.tsx>) | 拉取、图片、关闭反馈分别如何外联？ |
-| 更新 | [App 自动检查](<../apps/desktop/src/App.tsx#L53-L84>)、[updateStore](<../apps/desktop/src/shared/store/updateStore.ts>)、[Tauri update](<../apps/desktop/src-tauri/src/update/mod.rs>) | 自动检查与安装是否分开？谁持签名 key？ |
+| 默认 TAB | [TAB RPC](<../server/src/cursor/services/tab/mod.rs>)、[快照/范围](<../server/src/cursor/services/tab/context.rs>)、[单次调用](<../server/src/cursor/services/tab/completion.rs>)、[设置](<../server/src/store/settings.rs>) | 空模型是否停用？是否只读请求快照？取消是否释放许可？ |
+| 已删除广告 | [当前 ControlService](<../server/src/control/service.rs>)、[当前窗口布局](<../apps/desktop/src/shell/AppLayout.tsx>)；旧源码用 `git show 6a13780:server/src/control/ads.rs` | 是否仍有广告请求/缓存复用？当前答案为没有；未清真实历史数据 |
+| 更新 | [无源短路](<../apps/desktop/src/shared/native/appLifecycle.ts>)、[手动提示](<../apps/desktop/src/features/settings/AppLifecycleSettingsCard.tsx>)、[Tauri 配置](<../apps/desktop/src-tauri/tauri.conf.json>)、[native update](<../apps/desktop/src-tauri/src/update/mod.rs>) | 源为空是否在 plugin/IPC 前返回？缓存安装是否同样被阻止？签名机制仍保留吗？ |
 | WebSearch/WebFetch | [多源聚合](<../server/src/search/federation.rs>)、[目标检查](<../server/src/search/fetch.rs>) | query 发送给多少站点？是否防访问私网？ |
 | 代码索引 | [embedding assets](<../crates/semble-core/src/embedding/assets.rs>)、[本地 source](<../crates/semble-core/src/source/local.rs>) | 首次要下载什么？读取 repo 的范围是什么？ |
 | 本地管理权限 | [control router](<../server/src/control/mod.rs>)、[capabilities](<../apps/desktop/src-tauri/capabilities/default.json>) | localhost 是否被误当作鉴权？ |
@@ -332,7 +356,7 @@ OAuth/导入 → private resource → 本地 JSON 存储
 
 ## 9. 安全验证顺序与学习完成标准
 
-有完整工具链后，在没有真实凭据、没有启动接管、没有开放公网端口的条件下，先做静态/离线测试，再考虑实机联调：
+以下仅为后续自行验证的命令入口，**不是本文已经执行的操作**。先做 fixtures/编译，再考虑非敏感实机联调；不要因此预先断言所有 suites 或 native build 通过：
 
 ```bash
 # 从仓库根目录执行；依赖准备会访问包仓库，不能称为离线步骤。
@@ -358,5 +382,5 @@ make check
 2. 能解释 request_id、conversation_id、run_id、checkpoint_id 为什么不同。
 3. 能定位“配置成功但请求失败”的 URL、协议、模型标识、key、SSE/工具调用五个检查点。
 4. 能分清 Cursor 执行的工作区工具、Rust 执行的搜索工具和 Deno 执行的 provider 插件。
-5. 能说明默认配置会访问哪些第三方，哪些数据保存在本机。
+5. 能说明 Local TAB 与 Agent 生命周期不同；空模型/缺快照/取消如何处理，哪些其他功能仍会外联。
 6. 能用一个现有测试解释取消、续聊或恢复的状态变化；不会把所有声明的协议字段当作已实现功能。

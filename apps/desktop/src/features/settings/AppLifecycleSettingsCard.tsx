@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  appUpdateSource,
   currentAppVersion,
   hasDockVisibilitySetting,
   hasNativeAppLifecycle,
@@ -91,6 +92,10 @@ export function AppLifecycleSettingsCard() {
   };
 
   const checkUpdate = async () => {
+    if (appUpdateSource() === "no-source") {
+      message(t("暂无更新源"));
+      return;
+    }
     try {
       const nextVersion = await updateStore.check();
       message(nextVersion ? t("发现新版本 {version}", { version: nextVersion }) : t("当前已是最新版本"));
@@ -101,6 +106,10 @@ export function AppLifecycleSettingsCard() {
   };
 
   const updateNow = async () => {
+    if (appUpdateSource() === "no-source") {
+      message(t("暂无更新源"));
+      return;
+    }
     try {
       await updateStore.install();
     } catch (cause) {

@@ -12,6 +12,7 @@ pub enum ConnectCode {
     Canceled,
     InvalidArgument,
     NotFound,
+    Unimplemented,
     Unavailable,
     Internal,
 }
@@ -22,6 +23,7 @@ impl ConnectCode {
             Self::Canceled => "canceled",
             Self::InvalidArgument => "invalid_argument",
             Self::NotFound => "not_found",
+            Self::Unimplemented => "unimplemented",
             Self::Unavailable => "unavailable",
             Self::Internal => "internal",
         }

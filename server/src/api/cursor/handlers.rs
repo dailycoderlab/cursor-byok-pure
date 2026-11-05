@@ -25,6 +25,7 @@ use crate::{
         },
         transport::{TransportParent, TransportRegistry},
     },
+    store::TabMode,
     Result,
 };
 
@@ -158,13 +159,71 @@ fn router_with_proxy(
         .merge(tab::router())
         .route_layer(DefaultBodyLimit::disable())
         .route_layer(RequestDecompressionLayer::new())
-        .fallback(proxy::forward)
-        .method_not_allowed_fallback(proxy::forward)
+        .fallback(forward_unhandled)
+        .method_not_allowed_fallback(forward_unhandled)
         .layer(Extension(proxy))
         .layer(Extension(knowledge_service))
         .layer(Extension(free_entitlements))
         .with_state(registry)
         .merge(web_cache)
+}
+
+/// Unknown TAB methods must not escape the local completion boundary through the generic proxy.
+async fn forward_unhandled(
+    State(registry): State<TransportRegistry>,
+    Extension(upstream): Extension<CursorProxy>,
+    request: Request<Body>,
+) -> Result<Response<Body>> {
+    if tab::is_tab_path(request.uri().path()) {
+        let settings = registry.store().tab_settings().await?;
+        match settings.mode {
+            TabMode::Local => {
+                let streaming = request
+                    .headers()
+                    .get(header::CONTENT_TYPE)
+                    .and_then(|value| value.to_str().ok())
+                    .is_some_and(|value| value.starts_with("application/connect+"));
+                return unsupported_local_tab(streaming);
+            }
+            TabMode::Custom => {
+                return proxy::forward_to_service(&upstream, request, &settings.address).await;
+            }
+            TabMode::Direct => {}
+        }
+    }
+    proxy::forward(Extension(upstream), request).await
+}
+
+fn unsupported_local_tab(streaming: bool) -> Result<Response<Body>> {
+    const MESSAGE: &str =
+        "This TAB method is not implemented by the built-in service; no request was forwarded";
+    let (status, content_type, body) = if streaming {
+        let error = connect::ConnectStreamError {
+            code: connect::ConnectCode::Unimplemented,
+            message: MESSAGE.into(),
+            details: Vec::new(),
+        };
+        (
+            StatusCode::OK,
+            "application/connect+proto",
+            Body::from(connect::encode_error_end_stream(&error)?),
+        )
+    } else {
+        (
+            StatusCode::NOT_IMPLEMENTED,
+            "application/json",
+            Body::from(serde_json::to_vec(&serde_json::json!({
+                "code": "unimplemented",
+                "message": MESSAGE,
+            }))?),
+        )
+    };
+    let mut response = Response::new(body);
+    *response.status_mut() = status;
+    response
+        .headers_mut()
+        .insert(header::CONTENT_TYPE, HeaderValue::from_static(content_type));
+    Ok(response)
 }
 
 async fn health() -> StatusCode {

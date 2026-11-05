@@ -3,6 +3,7 @@ import { invoke, isTauri } from "@tauri-apps/api/core";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { check, type Update } from "@tauri-apps/plugin-updater";
+import tauriConfig from "../../../src-tauri/tauri.conf.json";
 import { api, type DesktopSettings } from "../api";
 import { desktopPlatform } from "./platform";
 
@@ -56,7 +57,14 @@ type PortableUpdateInfo = {
   version: string;
 };
 
+export type AppUpdateSource = "configured" | "no-source";
+
+export function appUpdateSource(): AppUpdateSource {
+  return tauriConfig.plugins.updater.endpoints.length > 0 ? "configured" : "no-source";
+}
+
 export async function checkForUpdate(): Promise<AppUpdate | null> {
+  if (appUpdateSource() === "no-source") return null;
   if (desktopPlatform() === "windows") {
     const update = await invoke<PortableUpdateInfo | null>("check_portable_update");
     if (!update) return null;
@@ -80,5 +88,6 @@ export async function checkForUpdate(): Promise<AppUpdate | null> {
 }
 
 export async function installUpdate(update: AppUpdate): Promise<void> {
+  if (appUpdateSource() === "no-source") throw new Error(t("暂无更新源"));
   await update.install();
 }
