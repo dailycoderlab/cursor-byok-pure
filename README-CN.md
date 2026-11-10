@@ -2,7 +2,7 @@
 
 运行在本机的 Cursor 模型网关：移除运行时广告，TAB 默认官方直连，可选内置 BYOK TAB，不使用作者公共 TAB 服务。
 
-[English README](<./README.md>) · [源码仓库](<https://github.com/kaisun1120/cursor-byok-pure>) · [纯净模式说明](<./docs/PURE-MODE-CN.md>) · [源码阅读指南](<./docs/CODE-READING-CN.md>) · [MIT 许可证](<./LICENSE>)
+[English README](<./README.md>) · [源码仓库](<https://github.com/dailycoderlab/cursor-byok-pure>) · [纯净模式说明](<./docs/PURE-MODE-CN.md>) · [源码阅读指南](<./docs/CODE-READING-CN.md>) · [MIT 许可证](<./LICENSE>)
 
 > 本 fork 暂未配置更新源，点击检查更新仅提示“暂无更新源”。不要把上游发布包当作此纯净版。上游通用[安装教程](<https://docs.leokun.cn>)仍可参考，但广告、TAB 和更新行为以本仓库说明为准。
 
@@ -214,7 +214,7 @@ make build-docker    # 构建 Docker 镜像
 
 已记录无安装脚本的前端依赖安装、i18n 完整性、TypeScript/Vite 检查与 Rust 定向 45 项测试通过；精确范围见[验证表](<./docs/PURE-MODE-CN.md#6-验证结果与未验证项>)。协议 fixtures 不是 Cursor 已显示/接受 ghost text 的证明；真实 Cursor、真实模型及官方登录/匿名行为仍需单独验收。
 
-- [本 fork 源码与问题反馈](<https://github.com/kaisun1120/cursor-byok-pure>)
+- [本 fork 源码与问题反馈](<https://github.com/dailycoderlab/cursor-byok-pure>)
 - [上游源码归属](<https://github.com/leookun/cursor-byok>)
 - [上游通用中文使用指南](<https://docs.leokun.cn/zh/docs>)（与本 fork 行为区分）
 

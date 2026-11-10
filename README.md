@@ -2,7 +2,7 @@
 
 A local model gateway for Cursor: runtime ads removed, built-in BYOK TAB available as an explicit option, and no author-hosted public TAB service.
 
-[中文说明](<./README-CN.md>) · [Source](<https://github.com/kaisun1120/cursor-byok-pure>) · [Pure-mode guide (Chinese)](<./docs/PURE-MODE-CN.md>) · [Code-reading guide (Chinese)](<./docs/CODE-READING-CN.md>) · [MIT License](<./LICENSE>)
+[中文说明](<./README-CN.md>) · [Source](<https://github.com/dailycoderlab/cursor-byok-pure>) · [Pure-mode guide (Chinese)](<./docs/PURE-MODE-CN.md>) · [Code-reading guide (Chinese)](<./docs/CODE-READING-CN.md>) · [MIT License](<./LICENSE>)
 
 > This fork has no configured update source. The updater is retained, but **Check for updates** reports **暂无更新源** in Chinese (localized in other languages). Do not install an upstream release expecting this fork's behavior. The upstream [installation guide](<https://docs.leokun.cn>) remains useful for general setup; TAB, ads and updates follow this repository's documentation.
 
@@ -94,6 +94,6 @@ The recorded checks include frontend dependency installation without lifecycle s
 
 ## Source, contribution and license
 
-Fork source and issues: [kaisun1120/cursor-byok-pure](<https://github.com/kaisun1120/cursor-byok-pure>). Original project: [leookun/cursor-byok](<https://github.com/leookun/cursor-byok>). General upstream tutorial: [docs.leokun.cn](<https://docs.leokun.cn>).
+Fork source and issues: [dailycoderlab/cursor-byok-pure](<https://github.com/dailycoderlab/cursor-byok-pure>). Original project: [leookun/cursor-byok](<https://github.com/leookun/cursor-byok>). General upstream tutorial: [docs.leokun.cn](<https://docs.leokun.cn>).
 
 Read [AGENTS.md](<./AGENTS.md>) and the [development instructions (Chinese)](<./README-CN.md#本地开发>) before changing code. Preserve the original attribution and copyright notices. This project remains licensed under the [MIT License](<./LICENSE>).
