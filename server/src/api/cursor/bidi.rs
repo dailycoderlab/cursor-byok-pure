@@ -160,22 +160,30 @@ pub fn decode(request: &ai::BidiAppendRequest) -> Result<DecodedAppend> {
         .map(|id| id.request_id.as_str())
         .filter(|id| !id.is_empty())
         .ok_or_else(|| Error::Protocol("BidiAppend request_id is required".into()))?;
-    if !request.data_binary.is_empty() {
-        return Err(Error::Protocol(
-            "BidiAppend data_binary is not part of the captured protocol".into(),
-        ));
-    }
-    if request.data.is_empty() {
-        return Err(Error::Protocol(
-            "BidiAppend contains no AgentClientMessage".into(),
-        ));
-    }
-    let payload = hex::decode(&request.data)
-        .map_err(|error| Error::Protocol(format!("invalid BidiAppend hex: {error}")))?;
+    // 客户端按 binaryEncoding 开关二选一：`data_binary` 是原始字节，`data` 是同一消息的 hex 文本。
+    let hex_payload;
+    let payload = match (request.data.is_empty(), request.data_binary.is_empty()) {
+        (true, true) => {
+            return Err(Error::Protocol(
+                "BidiAppend contains no AgentClientMessage".into(),
+            ))
+        }
+        (false, false) => {
+            return Err(Error::Protocol(
+                "BidiAppend must carry either data or data_binary, not both".into(),
+            ))
+        }
+        (false, true) => {
+            hex_payload = hex::decode(&request.data)
+                .map_err(|error| Error::Protocol(format!("invalid BidiAppend hex: {error}")))?;
+            hex_payload.as_slice()
+        }
+        (true, false) => request.data_binary.as_slice(),
+    };
     Ok(DecodedAppend {
         request_id: request_id.into(),
         seqno: request.append_seqno,
-        message: agent::AgentClientMessage::decode(payload.as_slice())?,
+        message: agent::AgentClientMessage::decode(payload)?,
     })
 }
 
@@ -208,4 +216,45 @@ pub async fn append(
         })
         .await?;
     Ok(ai::BidiAppendResponse {})
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn heartbeat() -> agent::AgentClientMessage {
+        agent::AgentClientMessage {
+            message: Some(agent::agent_client_message::Message::ClientHeartbeat(
+                agent::ClientHeartbeat::default(),
+            )),
+        }
+    }
+
+    fn request(data: String, data_binary: Vec<u8>) -> ai::BidiAppendRequest {
+        ai::BidiAppendRequest {
+            data,
+            request_id: Some(ai::BidiRequestId {
+                request_id: "request".into(),
+            }),
+            append_seqno: 7,
+            data_binary,
+        }
+    }
+
+    #[test]
+    fn hex_and_binary_payloads_decode_to_the_same_message() {
+        let bytes = heartbeat().encode_to_vec();
+        let from_hex = decode(&request(hex::encode(&bytes), Vec::new())).unwrap();
+        let from_binary = decode(&request(String::new(), bytes)).unwrap();
+        assert_eq!(from_hex.message, from_binary.message);
+        assert_eq!(from_binary.seqno, 7);
+        assert_eq!(from_binary.request_id, "request");
+    }
+
+    #[test]
+    fn empty_or_ambiguous_payloads_are_rejected() {
+        let bytes = heartbeat().encode_to_vec();
+        assert!(decode(&request(String::new(), Vec::new())).is_err());
+        assert!(decode(&request(hex::encode(&bytes), bytes)).is_err());
+    }
 }
