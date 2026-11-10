@@ -8,7 +8,7 @@ use super::{codec, runtime::now_ms, tool_call_result::ToolCompletion};
 
 // Unknown/retired tools use a generic Cursor MCP card only as a wire/UI
 // representation; they are never dispatched to an MCP server.
-const COMPAT_PROVIDER: &str = "cursor-byok-compat";
+const COMPAT_PROVIDER: &str = "cursor-byok-pure-compat";
 
 pub(crate) fn placeholder(name: &str, call_id: &str) -> pb::ToolCall {
     pb::ToolCall {
@@ -90,10 +90,10 @@ pub(crate) fn failure_with_message(call: &ToolCall, error: String) -> ToolComple
 
 fn failure_message(name: &str) -> String {
     if normalized(name) == "awaitshell" {
-        return "Tool \"AwaitShell\" is no longer available in this Cursor BYOK version. The model emitted a tool name that is not part of the current advertised tool set. Treat the tool call as failed and continue using only tools advertised in the current prompt; for background shell work, use the current Shell/background completion flow.".into();
+        return "Tool \"AwaitShell\" is no longer available in this Cursor BYOK Pure version. The model emitted a tool name that is not part of the current advertised tool set. Treat the tool call as failed and continue using only tools advertised in the current prompt; for background shell work, use the current Shell/background completion flow.".into();
     }
     format!(
-        "Tool \"{name}\" is not available in this Cursor BYOK version. The model emitted a tool name that is not part of the current advertised tool set. Treat the tool call as failed and continue using a tool advertised in the current prompt."
+        "Tool \"{name}\" is not available in this Cursor BYOK Pure version. The model emitted a tool name that is not part of the current advertised tool set. Treat the tool call as failed and continue using a tool advertised in the current prompt."
     )
 }
 

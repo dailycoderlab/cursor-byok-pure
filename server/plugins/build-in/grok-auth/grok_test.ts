@@ -3,9 +3,9 @@ import type {
   NetworkEventStream,
   NetworkResponse,
   PluginContext,
-} from "cursor-byok:plugin";
-import type { LlmRequest, ModelEvent } from "cursor-byok:provider";
-import type { ResourceSnapshot } from "cursor-byok:resource";
+} from "cursor-byok-pure:plugin";
+import type { LlmRequest, ModelEvent } from "cursor-byok-pure:provider";
+import type { ResourceSnapshot } from "cursor-byok-pure:resource";
 import { grokDeviceOAuth } from "./oauth.ts";
 import { FALLBACK_MODELS, grokModels, parseGrokModels } from "./models.ts";
 import { grokProvider, isQuotaError } from "./provider.ts";

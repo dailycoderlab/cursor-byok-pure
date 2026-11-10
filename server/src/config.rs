@@ -6,8 +6,8 @@ use std::os::unix::fs::PermissionsExt;
 
 use crate::{Error, Result};
 
-const DATA_DIR_NAME: &str = ".cursor-byok-v3";
-const DATABASE_FILE_NAME: &str = "cursor-byok.db";
+const DATA_DIR_NAME: &str = ".cursor-byok-pure";
+const DATABASE_FILE_NAME: &str = "cursor-byok-pure.db";
 const V0049_DATA_DIR_NAME: &str = ".cursor-local-assistant-v2";
 const V0049_CONFIG_FILE_NAME: &str = "config.yaml";
 const DEFAULT_PROVIDER_REQUEST_TIMEOUT: Duration = Duration::from_secs(60 * 60);

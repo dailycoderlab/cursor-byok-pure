@@ -3,9 +3,9 @@ import type {
   ProviderOutput,
   ProviderResult,
   ProviderSupport,
-} from "cursor-byok:provider";
-import type { PluginContext } from "cursor-byok:plugin";
-import { HttpError, streamOpenAiChat } from "cursor-byok:protocol/openai-chat";
+} from "cursor-byok-pure:provider";
+import type { PluginContext } from "cursor-byok-pure:plugin";
+import { HttpError, streamOpenAiChat } from "cursor-byok-pure:protocol/openai-chat";
 import { grokModels } from "./models.ts";
 import { type AccountData, accountData, quotaExhaustedPatch, RESOURCE_TYPE } from "./resources.ts";
 

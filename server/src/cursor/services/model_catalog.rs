@@ -211,7 +211,7 @@ struct DefaultModelNudgeDataResponse {
     conversion_model_override: String,
 }
 
-const CLI_LOCAL_MODEL_API_KEY: &str = "cursor-byok-local";
+const CLI_LOCAL_MODEL_API_KEY: &str = "cursor-byok-pure-local";
 
 const CONTEXTS: [(&str, &str); 5] = [
     ("200k", "200K"),

@@ -1,4 +1,4 @@
-import type { PluginContext } from "cursor-byok:plugin";
+import type { PluginContext } from "cursor-byok-pure:plugin";
 import { parseCredentialFiles } from "./resources.ts";
 
 function assert(condition: unknown, message: string): asserts condition {

@@ -21,21 +21,7 @@ pub use event::*;
 pub use openai_chat::OpenAiChatProvider;
 pub use openai_responses::OpenAiResponsesProvider;
 pub use recorder::CallRecorder;
-pub(crate) use router::custom_headers;
 
-pub(crate) fn native_usage(
-    kind: crate::model::ProviderType,
-    value: &serde_json::Value,
-) -> crate::model::Usage {
-    match kind {
-        crate::model::ProviderType::OpenAiChat => openai_chat::openai_usage(value),
-        crate::model::ProviderType::OpenAiResponses => openai_responses::responses_usage(value),
-        crate::model::ProviderType::Anthropic => anthropic::anthropic_usage(value),
-        crate::model::ProviderType::Plugin => {
-            unreachable!("plugin calls have no native HTTP protocol")
-        }
-    }
-}
 pub use router::{build as build_provider, ProviderRouter};
 
 pub type ProviderStream = Pin<Box<dyn Stream<Item = Result<ModelEvent>> + Send>>;
@@ -143,7 +129,7 @@ fn apply_openai_prompt_cache_key(body: &mut serde_json::Value, model_id: &str) -
         .ok_or_else(|| crate::Error::Provider("provider request body must be an object".into()))?
         .insert(
             "prompt_cache_key".into(),
-            serde_json::Value::String("cursor-byok".into()),
+            serde_json::Value::String("cursor-byok-pure".into()),
         );
     Ok(())
 }

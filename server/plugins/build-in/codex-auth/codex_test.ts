@@ -3,12 +3,12 @@ import type {
   NetworkEventStream,
   NetworkResponse,
   PluginContext,
-} from "cursor-byok:plugin";
-import type { LlmRequest, ModelEvent } from "cursor-byok:provider";
-import type { ResourceSnapshot } from "cursor-byok:resource";
+} from "cursor-byok-pure:plugin";
+import type { LlmRequest, ModelEvent } from "cursor-byok-pure:provider";
+import type { ResourceSnapshot } from "cursor-byok-pure:resource";
 import { codexDeviceOAuth } from "./oauth.ts";
 import { parseOfficialModels } from "./models.ts";
-import { buildResponsesBody } from "cursor-byok:protocol/openai-responses";
+import { buildResponsesBody } from "cursor-byok-pure:protocol/openai-responses";
 import { codexProvider, isQuotaError } from "./provider.ts";
 import {
   accountIdentity,

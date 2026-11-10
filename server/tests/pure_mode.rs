@@ -78,17 +78,15 @@ fn control_router(store: &Store, provider: fake_provider::FakeProvider) -> Route
 }
 
 #[tokio::test]
-async fn fresh_tab_settings_are_local_disabled_and_do_not_select_an_upstream() {
+async fn fresh_tab_settings_default_to_official_direct_without_a_selected_model() {
     let (_directory, store) = fixtures::temp_store().await;
     let settings = store.tab_settings().await.unwrap();
-    assert_eq!(settings.mode, TabMode::Local);
+    assert_eq!(settings.mode, TabMode::Direct);
     assert!(settings.model_id.is_empty());
-    assert!(settings.address.is_empty());
-    assert_eq!(serde_json::to_value(settings).unwrap()["mode"], "local");
-    assert!(serde_json::from_value::<TabSettings>(json!({
-        "mode": "public", "address": "https://retired.invalid"
-    }))
-    .is_err());
+    assert_eq!(serde_json::to_value(settings).unwrap()["mode"], "direct");
+    for retired in ["public", "custom"] {
+        assert!(serde_json::from_value::<TabSettings>(json!({"mode": retired})).is_err());
+    }
 }
 
 #[tokio::test]
@@ -110,13 +108,11 @@ async fn new_tab_namespace_does_not_read_obsolete_settings_or_reset_other_settin
     assert_eq!(store.tab_settings().await.unwrap(), TabSettings::default());
     let saved = store
         .set_tab_settings(TabSettings {
-            mode: TabMode::Custom,
-            address: " http://127.0.0.1:8041/ ".into(),
+            mode: TabMode::Local,
             model_id: " explicitly-selected-model ".into(),
         })
         .await
         .unwrap();
-    assert_eq!(saved.address, "http://127.0.0.1:8041");
     assert_eq!(saved.model_id, "explicitly-selected-model");
     let url = format!("sqlite://{}", directory.path().join("test.db").display());
     let reopened = Store::connect(&url).await.unwrap();
@@ -174,7 +170,7 @@ async fn tab_management_exposes_disabled_default_and_rejects_an_unknown_model() 
     assert_eq!(response.status(), StatusCode::OK);
     let body = to_bytes(response.into_body(), 4096).await.unwrap();
     let value: Value = serde_json::from_slice(&body).unwrap();
-    assert_eq!(value["mode"], "local");
+    assert_eq!(value["mode"], "direct");
     assert_eq!(value["model_id"], "");
     for (model_id, should_succeed) in [("missing-model", false), ("", true)] {
         let response = router
@@ -183,7 +179,7 @@ async fn tab_management_exposes_disabled_default_and_rejects_an_unknown_model() 
                 Request::put("/__byok-api__/api/settings/tab")
                     .header(header::CONTENT_TYPE, "application/json")
                     .body(Body::from(
-                        json!({"mode":"local", "address":"", "model_id":model_id}).to_string(),
+                        json!({"mode":"local", "model_id":model_id}).to_string(),
                     ))
                     .unwrap(),
             )
@@ -198,6 +194,13 @@ async fn tab_management_exposes_disabled_default_and_rejects_an_unknown_model() 
 async fn future_tab_methods_and_wrong_http_methods_cannot_escape_the_local_proxy_boundary() {
     let (_directory, store) = fixtures::temp_store().await;
     let provider = fake_provider::FakeProvider::default();
+    store
+        .set_tab_settings(TabSettings {
+            mode: TabMode::Local,
+            ..TabSettings::default()
+        })
+        .await
+        .unwrap();
     let router = cursor_router(&store, provider.clone());
     let upstream = loopback_upstream("must not be contacted").await;
     for (method, path) in [
@@ -231,65 +234,6 @@ async fn future_tab_methods_and_wrong_http_methods_cannot_escape_the_local_proxy
 }
 
 #[tokio::test]
-async fn an_explicit_custom_tab_service_receives_future_tab_methods() {
-    let (_directory, store) = fixtures::temp_store().await;
-    let upstream = loopback_upstream("custom TAB service").await;
-    store
-        .set_tab_settings(TabSettings {
-            mode: TabMode::Custom,
-            address: upstream.url.clone(),
-            ..TabSettings::default()
-        })
-        .await
-        .unwrap();
-    let router = cursor_router(&store, fake_provider::FakeProvider::default());
-    let response = router
-        .oneshot(
-            Request::post("/aiserver.v1.AiService/FutureTabMethod")
-                .body(Body::empty())
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::OK);
-    assert_eq!(
-        &to_bytes(response.into_body(), 4096).await.unwrap()[..],
-        b"custom TAB service"
-    );
-    assert_eq!(upstream.calls.load(Ordering::SeqCst), 1);
-}
-
-#[tokio::test]
-async fn direct_commit_generation_does_not_use_custom_tab_even_for_an_invalid_original_upstream() {
-    let (_directory, store) = fixtures::temp_store().await;
-    let tab = loopback_upstream("must not receive staged diffs").await;
-    store
-        .set_tab_settings(TabSettings {
-            mode: TabMode::Custom,
-            address: tab.url.clone(),
-            ..TabSettings::default()
-        })
-        .await
-        .unwrap();
-    let router = cursor_router(&store, fake_provider::FakeProvider::default());
-    let response = router
-        .oneshot(
-            Request::post("/aiserver.v1.AiService/WriteGitCommitMessage")
-                // The official forwarding path rejects this URL before any network access.
-                // The old TAB-coupled forwarding path would instead contact the custom service.
-                .header(UPSTREAM_URL_HEADER, "http://127.0.0.1:9")
-                .body(Body::from("test staged diff, not real source"))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    let body = to_bytes(response.into_body(), 4096).await.unwrap();
-    assert!(String::from_utf8_lossy(&body).contains("upstream URL must target a Cursor HTTPS host"));
-    assert_eq!(tab.calls.load(Ordering::SeqCst), 0);
-}
-
-#[tokio::test]
 async fn classifier_does_not_suppress_every_configured_local_suggestion() {
     let (_directory, store) = fixtures::temp_store().await;
     let provider = fake_provider::FakeProvider::default();
@@ -308,6 +252,7 @@ async fn classifier_does_not_suppress_every_configured_local_suggestion() {
     for (model_id, should_noop) in [(String::new(), true), (model.model_hash, false)] {
         store
             .set_tab_settings(TabSettings {
+                mode: TabMode::Local,
                 model_id,
                 ..TabSettings::default()
             })

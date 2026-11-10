@@ -1,6 +1,6 @@
 {
   "apiVersion": 1,
-  "id": "dev.cursorbyok.examples.grok-auth",
+  "id": "dev.cursorbyokpure.examples.grok-auth",
   "name": "Grok",
   "version": "0.1.7",
   "author": "@leookun",

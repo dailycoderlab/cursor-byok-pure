@@ -23,7 +23,7 @@ use crate::{
     plugin::{PluginDescriptor, PluginRegistry, PluginRuntime, PluginRuntimeStatus},
     provider::{is_valid_response_event, ModelEvent, Provider},
     store::{
-        CommitSettings, DesktopSettings, ExternalApiSettings, PortSettings, ProxySettings,
+        CommitSettings, DesktopSettings, PortSettings, ProxySettings,
         ProxySettingsInput, StatisticsStorage, Store, TabMode, TabSettings, TokenPricingSettings,
     },
     Error, Result,
@@ -535,7 +535,7 @@ impl ControlService {
             .await?
             .into_iter()
             .map(|call| {
-                let route = call_route(&call.run_id);
+                let route = LOCAL_CALL_ROUTE;
                 CallSummary {
                     call,
                     call_kind: "provider_llm",
@@ -558,7 +558,7 @@ impl ControlService {
     pub async fn call(&self, call_id: &str) -> Result<CallDetail> {
         if let Some(call) = self.store.llm_call(call_id).await? {
             let cursor_trace = self.cursor_trace_detail(&call.run_id).await?;
-            let route = call_route(&call.run_id);
+            let route = LOCAL_CALL_ROUTE;
             return Ok(CallDetail {
                 request: self.store.llm_call_request(call_id).await?,
                 response_chunks: self.store.llm_call_chunks(call_id).await?,
@@ -622,17 +622,6 @@ impl ControlService {
 
     pub async fn ports(&self) -> Result<PortSettings> {
         self.store.port_settings().await
-    }
-
-    pub async fn external_api_settings(&self) -> Result<ExternalApiSettings> {
-        self.store.external_api_settings().await
-    }
-
-    pub async fn set_external_api_settings(
-        &self,
-        settings: ExternalApiSettings,
-    ) -> Result<ExternalApiSettings> {
-        self.store.set_external_api_settings(settings).await
     }
 
     pub async fn set_ports(&self, settings: PortSettings) -> Result<PortSettings> {
@@ -719,13 +708,7 @@ impl ControlService {
     }
 }
 
-fn call_route(run_id: &str) -> &'static str {
-    if run_id.starts_with("external-api:") {
-        "external_api"
-    } else {
-        "local_byok"
-    }
-}
+const LOCAL_CALL_ROUTE: &str = "local_byok";
 
 fn official_call(trace: CursorRunTraceSummary) -> CallSummary {
     let model_id = trace.model_id.clone().unwrap_or_else(|| "Cursor".into());

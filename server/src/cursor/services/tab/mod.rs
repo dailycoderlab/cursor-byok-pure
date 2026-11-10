@@ -1,5 +1,5 @@
 //! Handles basic local TAB completion independently of Cursor account credentials.
-//! Only explicitly selected Direct/Custom modes proxy requests to another service.
+//! Only the explicitly selected Direct mode proxies requests to Cursor.
 mod completion;
 mod context;
 pub mod proto;
@@ -80,12 +80,8 @@ async fn handle(
         "/aiserver.v1.AiService/StreamCpp" | "/aiserver.v1.AiService/StreamNextCursorPrediction"
     );
     let settings = registry.store().tab_settings().await?;
-    match settings.mode {
-        TabMode::Direct => return proxy::forward(Extension(upstream), request).await,
-        TabMode::Custom => {
-            return proxy::forward_to_service(&upstream, request, &settings.address).await
-        }
-        TabMode::Local => {}
+    if settings.mode == TabMode::Direct {
+        return proxy::forward(Extension(upstream), request).await;
     }
     let result = local(&registry, &settings, gate, request, started).await;
     match result {

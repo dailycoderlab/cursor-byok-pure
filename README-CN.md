@@ -1,6 +1,6 @@
 # Cursor BYOK Pure
 
-运行在本机的 Cursor 模型网关：移除运行时广告，默认使用内置 BYOK TAB，不使用作者公共 TAB 服务。
+运行在本机的 Cursor 模型网关：移除运行时广告，TAB 默认官方直连，可选内置 BYOK TAB，不使用作者公共 TAB 服务。
 
 [English README](<./README.md>) · [源码仓库](<https://github.com/kaisun1120/cursor-byok-pure>) · [纯净模式说明](<./docs/PURE-MODE-CN.md>) · [源码阅读指南](<./docs/CODE-READING-CN.md>) · [MIT 许可证](<./LICENSE>)
 
@@ -14,12 +14,12 @@
 
 ## 项目简介
 
-cursor-byok 是一个开源的本地模型网关。它在你的设备上运行服务，接收 Cursor 发出的 Agent 请求，将请求转发到你配置的模型服务，并尽可能保留 Cursor Agent 的工具调用、Skills、MCP 和多轮对话能力。
+cursor-byok-pure 是一个开源的本地模型网关。它在你的设备上运行服务，接收 Cursor 发出的 Agent 请求，将请求转发到你配置的模型服务，并尽可能保留 Cursor Agent 的工具调用、Skills、MCP 和多轮对话能力。
 
 你可以连接兼容 OpenAI 或 Anthropic 协议的服务，自定义服务地址、模型 ID、API Key 和请求参数，也可以使用 Cursor 平台默认选项之外的模型通道。
 
 > [!IMPORTANT]
-> cursor-byok 免费且开源，但你连接的模型服务商可能会按用量收费。本项目是独立项目，与 Cursor 或其开发者没有关联，也未获得其认可。
+> cursor-byok-pure 免费且开源，但你连接的模型服务商可能会按用量收费。本项目是独立项目，与 Cursor 或其开发者没有关联，也未获得其认可。
 
 ## 主要功能
 
@@ -29,7 +29,7 @@ cursor-byok 是一个开源的本地模型网关。它在你的设备上运行�
 - **连接性能测试**：查看首字延迟、生成速度、总耗时和原始服务商响应。
 - **Agent 工作流**：继续使用工具调用、Skills、MCP 和多轮对话。
 - **会话指标**：查看 Token 用量、缓存命中率、对话轮次和估算价值。
-- **内置 BYOK TAB**：默认本地模式，明确选择已配置模型后提供当前位置基本补全；也可显式选择官方直连或自托管服务。
+- **内置 BYOK TAB**：随桌面应用启动的本地 TAB 服务，明确选择已配置模型后提供当前位置基本补全；TAB 默认是官方直连，需在设置中切换到内置 BYOK TAB。
 - **无广告、无更新源**：广告链路已移除；保留 updater 机制，但自动检查不发更新请求，手动检查提示“暂无更新源”。
 - **跨平台运行**：支持 macOS、Windows 和 Linux。
 
@@ -39,7 +39,7 @@ cursor-byok 是一个开源的本地模型网关。它在你的设备上运行�
 
 1. 打开 **Cursor 配置**，先阅读现有本地接管/CA 提示；接受其对系统信任和 Cursor 设置的影响后，由你自行启用接管并安装/信任 CA。
 2. 在模型设置中填写协议、服务地址、API Key 和模型名称，保存并运行 **测试**。连接测试不等于 Agent 工具兼容或 TAB 显示验收。
-3. 打开 **系统设置 → TAB 设置 → 编辑**，保持 **内置 BYOK TAB**，明确选择 **TAB 补全模型**并保存。未选择模型时停用，不自动使用 Agent 模型。
+3. 打开 **系统设置 → TAB 设置 → 编辑**，将 **TAB 选择**切换为 **内置 BYOK TAB**，明确选择 **TAB 补全模型**并保存。未选择模型时停用，不自动使用 Agent 模型。
 4. 保持桌面应用运行。TAB 复用同一个 Rust App，自然随应用启动/关闭，不需要另起 Node/Go 补全进程。
 5. **首次接管、升级 Cursor 或首次配置模型后，完全退出并重新启动 Cursor，再新开 Agent 对话**，手动选择配置模型而非 Auto；TAB 另用非敏感临时文件验收。
 
@@ -84,11 +84,10 @@ TAB 不走 Agent 会话/工具循环，而是在现有 Rust 服务中独立处�
 
 | 模式 | 目标 | 条件与边界 |
 | --- | --- | --- |
-| **内置 BYOK TAB（默认 Local）** | 选定的配置模型/provider | 后端不依赖官方账号；`model_id` 为空就停用，不调用 provider、不外部回退、不自动选 Agent 模型 |
-| **Cursor 官方直连（显式 Direct）** | 官方 TAB | 需要真实登录和可用额度；不承诺匿名可用，mock Ultra 不授予上游权益 |
-| **自托管服务（显式 Custom）** | 你输入的服务基础 URL | 自行审查信任/鉴权；不是自动本地推理 |
+| **内置 BYOK TAB（显式 Local）** | 选定的配置模型/provider | 后端不依赖官方账号；`model_id` 为空就停用，不调用 provider、不外部回退、不自动选 Agent 模型 |
+| **Cursor 官方直连（默认 Direct）** | 官方 TAB | 需要真实登录和可用额度；不承诺匿名可用，mock Ultra 不授予上游权益 |
 
-设置为 `{mode, address, model_id}`，新存储键是 `cursor_tab_service`。**旧 `cursor_tab` 不读取、不迁移、不加兼容别名，旧的显式 Custom 地址也不会沿用**：请重新选择模型或输入自托管 URL。其他模型、Commit、账号数据不重置。
+设置为 `{mode, model_id}`，新存储键是 `cursor_tab_service`。**旧 `cursor_tab` 不读取、不迁移、不加兼容别名，自托管（Custom）模式已删除**：使用内置 TAB 请重新选择模型。其他模型、Commit、账号数据不重置。
 
 本地 TAB 只使用请求携带的当前文件快照，生成光标处短插入，再返回“原当前行前缀 + 补全文本 + 原后缀”的当前行替换；处理 UTF-16 光标列和 CRLF。不扫描磁盘仓库、不使用文件同步缓存、不支持多位置/下一光标预测、import/fused/chunks 或分支名生成。缺少文件内容的 file-sync 请求必须重传快照。
 
@@ -98,13 +97,13 @@ TAB 不走 Agent 会话/工具循环，而是在现有 Rust 服务中独立处�
 
 ## 与官方账号并存
 
-新版设计支持 cursor-byok 与 Cursor 官方服务并存：
+新版设计支持 cursor-byok-pure 与 Cursor 官方服务并存：
 
 - 直接在 Cursor 中登录自己的账号。如果之前使用旧版生成的 fake 账户，请先退出该账户，再登录自己的账号。
 - 账号拥有官方额度时，官方模型和本地模型可以随时切换混用。
 - **Auto 只使用官方模型**，不会自动使用你配置的本地模型。账号没有官方额度时，请手动选择自己配置的模型。
 - 未接管的插件/代码库索引等功能仍按 Cursor 自身的网络、账号和额度规则运行，不保证完全离线可用。
-- Local TAB 不把官方凭据头送给模型 provider；显式 Custom 仍透传原 RPC，可能包含 Authorization/Cookie，请只使用自己审查信任的目标。
+- Local TAB 不把官方凭据头送给模型 provider。
 
 ## 数据流转
 
@@ -219,7 +218,7 @@ make build-docker    # 构建 Docker 镜像
 - [上游源码归属](<https://github.com/leookun/cursor-byok>)
 - [上游通用中文使用指南](<https://docs.leokun.cn/zh/docs>)（与本 fork 行为区分）
 
-提交问题时，请附上操作系统、cursor-byok 版本、模型类型、请求协议、已脱敏的服务地址、错误信息和复现步骤。请勿公开 API Key 或其他凭据。
+提交问题时，请附上操作系统、cursor-byok-pure 版本、模型类型、请求协议、已脱敏的服务地址、错误信息和复现步骤。请勿公开 API Key 或其他凭据。
 
 ## 参与贡献
 

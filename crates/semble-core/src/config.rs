@@ -28,8 +28,8 @@ impl Default for SembleConfig {
         let root = std::env::var_os("SEMBLE_CACHE_LOCATION")
             .map(PathBuf::from)
             .filter(|path| path.is_absolute())
-            .or_else(|| dirs::home_dir().map(|home| home.join(".cursor-byok-v3/cache/semble")))
-            .unwrap_or_else(|| PathBuf::from(".cursor-byok-v3/cache/semble"));
+            .or_else(|| dirs::home_dir().map(|home| home.join(".cursor-byok-pure/cache/semble")))
+            .unwrap_or_else(|| PathBuf::from(".cursor-byok-pure/cache/semble"));
         Self::new(root)
     }
 }

@@ -1,4 +1,4 @@
-# Cursor BYOK 项目完整性、外联与安全审查
+# Cursor BYOK Pure 项目完整性、外联与安全审查
 
 > 首次审查日期：2026-11-05（Asia/Shanghai）。**第 1–9 节保留改动前下载快照的结论，不代表当前实现。** 原始 605 文件指纹与当时“无 Git/无 Rust 工具链、未安装前端依赖”的记录仍属于首次任务。当前行为见[纯净模式说明](<./PURE-MODE-CN.md>)，当前结构见[源码阅读指南](<./CODE-READING-CN.md>)。
 
@@ -33,7 +33,7 @@ git show 6a13780:apps/desktop/src-tauri/tauri.conf.json
 
 ### 1.1 项目完整吗？
 
-**作为 Cursor BYOK 本地模型网关，主体实现较齐全，不是只有转发接口的空壳；但不是完整 Cursor 官方后端，也有明确的功能、正确性、安全和打包欠缺。**
+**作为 Cursor BYOK Pure 本地模型网关，主体实现较齐全，不是只有转发接口的空壳；但不是完整 Cursor 官方后端，也有明确的功能、正确性、安全和打包欠缺。**
 
 - 有桌面应用、本地服务、三种模型协议、Agent 工具循环、会话/checkpoint、取消/续聊/恢复/压缩、模型设置、调用记录及测试。
 - 未接管 RPC、官方模型、部分账号/模型目录请求仍使用 Cursor 官方服务；TAB 并未在本地实现，而是透传。
@@ -96,7 +96,7 @@ git show 6a13780:apps/desktop/src-tauri/tauri.conf.json
 当前仓库
 ├── apps/desktop/         # React 设置/记录/广告 UI + Tauri 窗口、更新与原生权限
 ├── server/
-│   ├── src/api/         # Cursor RPC / 对外兼容模型 API
+│   ├── src/api/         # Cursor RPC
 │   ├── src/local_app/   # 本机 CA、Cursor 代理/设置/账号接管
 │   ├── src/cursor/      # Cursor 协议、上下文、工具、checkpoint 与传输生命周期
 │   ├── src/run/         # 通用 Agent 模型→工具→继续循环
@@ -154,7 +154,6 @@ Cursor 客户端（拥有工作区、文件/终端工具、MCP、审批和 UI）
 | Git Commit message | 可用配置模型本地生成 | 默认跟随 TAB 目标，diff 可能发作者服务；Commit（`git show 6a13780:server/src/cursor/services/commit_message.rs`，历史 46–67 行） |
 | WebSearch/WebFetch | 23 源聚合搜索、HTTP 页面提取 | 不是官方完整搜索后端，无浏览器 JS 渲染，来源可反爬/失效；[搜索](<../server/src/search/federation.rs>)、[抓取](<../server/src/search/fetch.rs>) |
 | Semble | 本地代码 embedding/index/search | 首次下载模型，远程 repo 会 git clone；不替代 Cursor 官方全量索引服务；[Semble 适配](<../server/src/search/search_provider.rs>) |
-| 对外 `/byok/v1/*` API | 模型列表、三个兼容协议入口，有独立 key 校验 | key 保护仅限此 API，不能据此推断管理 API 也安全；[鉴权](<../server/src/api/byok/mod.rs#L57-L89>) |
 | 协议/构建材料 | workspace、prompt、migrations、两套 lock、CI/release 都存在 | 只编译 agent_v1；aiserver 重名导致手写必要 wire 子集；[build](<../server/build.rs#L28-L53>) |
 | Docker 部署 | 前端/服务/运行镜像三阶段、非 root 用户 | 服务构建只复制部分 workspace，缺 Semble crate/benchmark manifest 路径；静态判断构建材料不足，未实际 docker build；[Dockerfile](<../Dockerfile#L13-L28>)、[workspace 成员](<../Cargo.toml#L1-L7>) |
 | 辅助 Go 抓包工具 | 源文件、UI、SQLite 捕获实现 | import 的 `gen/agent/v1` 和 `gen/aiserver/v1` 未包含；需 protoc/protoc-gen-go 生成，抽取协议重名问题仍需验证；[imports](<../support/cursor-capture/decode.go#L14-L16>)、[生成脚本](<../support/cursor-protocol-extractor/scripts/generate.sh>) |
@@ -201,9 +200,9 @@ Cursor 客户端（拥有工作区、文件/终端工具、MCP、审批和 UI）
 
 - CORS（`git show 6a13780:server/src/control/mod.rs`，历史 243–284 行） 除 localhost/Tauri，还允许任意私网/链路本地 IP Origin。CORS 不是鉴权；其他本地进程不受浏览器 CORS 限制。浏览器的 private-network 限制可能降低部分网页利用，但不能作为服务鉴权。
 - [默认监听](<../server/src/config.rs#L71-L75>) 是 loopback，桌面也是 loopback，这是有效降低暴露面的措施；但 `CURSOR_LISTEN_ADDR` 可以设非 loopback，管理和推理 API 共用同一 listener，组装（`git show 6a13780:server/src/app.rs`，历史 55–91 行）。Docker 暴露也必须重新审查。
-- 可以读取 Key、改模型目标、启停接管、清数据、操作 OAuth 资源。`/byok/v1/*` 的 Bearer key 不保护这些管理路由。
+- 可以读取 Key、改模型目标、启停接管、清数据、操作 OAuth 资源。管理路由没有任何 key 保护。
 
-**建议：** 服务端管理鉴权、严格 Host/Origin/CSRF 边界、默认只 loopback，敏感值默认不出列表；公开模型 API 与管理面隔离。修复前不要将端口暴露网络，也不要把不可信本地网页作为有权限的管理 origin。
+**建议：** 服务端管理鉴权、严格 Host/Origin/CSRF 边界、默认只 loopback，敏感值默认不出列表。修复前不要将端口暴露网络，也不要把不可信本地网页作为有权限的管理 origin。
 
 ### S3 — 高：OAuth 批量导出直接返回所有秘密
 
@@ -239,7 +238,7 @@ PluginRegistry 将 CallRecorder 传给 provider invoke
 [delete handler](<../server/src/control/plugins.rs#L22-L27>) → [registry.remove](<../server/src/plugin/registry.rs#L960-L964>) → state.clear → [data.clear](<../server/src/plugin/data.rs#L114-L125>)。[validate_component](<../server/src/plugin/data.rs#L194-L203>) 允许点号且不排除单独 `.`/`..`，没有先确认已知插件。
 
 ```text
-root = ~/.cursor-byok-v3/plugins/data
+root = ~/.cursor-byok-pure/plugins/data
 plugin_id = ".." → root.join("..") → plugins/data/.. → 整个 plugins 目录
 plugin_id = "."  → root.join(".")  → 全部插件 data
 ```

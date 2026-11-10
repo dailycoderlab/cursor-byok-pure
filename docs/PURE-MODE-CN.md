@@ -1,6 +1,6 @@
 # 纯净模式：内置 BYOK TAB、无广告、无更新源
 
-**当前实现已移除广告和作者公共 TAB 默认路径；默认 Local TAB 只调用你明确选中的配置模型。updater 功能保留，但所有更新源为空，手动检查显示“暂无更新源”。** 这些改动不等于完全离线、官方后端全功能替代或安全问题全部修复。
+**当前实现已移除广告和作者公共 TAB 默认路径；TAB 默认官方直连；切换到内置 Local TAB 后只调用你明确选中的配置模型。updater 功能保留，但所有更新源为空，手动检查显示“暂无更新源”。** 这些改动不等于完全离线、官方后端全功能替代或安全问题全部修复。
 
 本说明描述 2026-11-05 的实现。旧快照问题与当前修复的区别见[历史审查](<./PROJECT-AUDIT-CN.md>)，Agent 主线见[阅读指南](<./CODE-READING-CN.md>)。
 
@@ -55,18 +55,17 @@ TAB 的参数、模式保存在已有 SQLite 设置表；每次生成只拥有�
 
 | 设置 | 默认/目标 | 行为与要求 |
 | --- | --- | --- |
-| `Local` | 默认；选定模型/provider | 后端没有官方账号依赖；模型可为已配置普通通道或插件模型（插件自身可能需要它的账号） |
-| Local `model_id=""` | 默认未选模型 | 明确停用：不调用 provider、不回退官方/作者服务、不自动选择 Agent 模型 |
-| `Direct` | 必须显式选择；官方 TAB | 走官方服务，需真实登录与可用额度；不承诺匿名 TAB |
-| `Custom` | 必须显式选择；输入的基础 URL | 原 RPC 路径追加到该服务；你负责目标信任和鉴权，不能仅因自托管就称其离线 |
+| `Local` | 显式选择；随桌面应用启动的内置 TAB 服务，选定模型/provider | 后端没有官方账号依赖；模型可为已配置普通通道或插件模型（插件自身可能需要它的账号） |
+| Local `model_id=""` | 未选模型 | 明确停用：不调用 provider、不回退官方/作者服务、不自动选择 Agent 模型 |
+| `Direct` | 默认；官方 TAB | 走官方服务，需真实登录与可用额度；不承诺匿名 TAB |
 
-设置对象为 `TabSettings { mode, address, model_id }`。`model_id` 保存配置模型的稳定标识（普通模型 hash 或插件 ID），不是自动取当前 Agent 模型。
+设置对象为 `TabSettings { mode, model_id }`。`model_id` 保存配置模型的稳定标识（普通模型 hash 或插件 ID），不是自动取当前 Agent 模型。
 
-**无兼容/迁移：** 存储键由 `cursor_tab` 改为 `cursor_tab_service`；旧键完全不读取，不加 alias，包括以前手动配置的 Custom。用户须重新选择模型或重新输入自托管 URL。其他模型、Commit、账号数据不重置；旧广告缓存/数据库标识不读不复用，也没有删除任何真实用户目录、数据库或缓存。
+**无兼容/迁移：** 存储键由 `cursor_tab` 改为 `cursor_tab_service`；旧键完全不读取，不加 alias，自托管（Custom）模式已删除。使用内置 TAB 须重新选择模型。其他模型、Commit、账号数据不重置；旧广告缓存/数据库标识不读不复用，也没有删除任何真实用户目录、数据库或缓存。
 
-Commit 与 TAB 已解耦：Commit 选模型则本地生成；未选模型仍是官方直连，**不是停用，也不跟随 TAB Custom**。敏感 diff 若不希望发官方，请单独选择 Commit 模型。
+Commit 与 TAB 已解耦：Commit 选模型则本地生成；未选模型仍是官方直连，**不是停用，也不跟随 TAB 模式**。敏感 diff 若不希望发官方，请单独选择 Commit 模型。
 
-Local 生成不会透传 Cursor 官方凭据给模型 provider，只使用选定模型通道自己的凭据。**显式 Custom 仍复用原 RPC 透传**，目前不会剥离原请求的 Authorization/Cookie 等账号头；若客户端携带这些头，它们会随 payload 进入自托管目标。只填自己已审查信任的服务，不把“默认公共服务移除”误解为所有跨目标凭据风险已解决。
+Local 生成不会透传 Cursor 官方凭据给模型 provider，只使用选定模型通道自己的凭据。Direct 模式仍复用原 RPC 透传，不会剥离原请求的 Authorization/Cookie 等账号头；若客户端携带这些头，它们会随 payload 进入自托管目标。只填自己已审查信任的服务，不把“默认公共服务移除”误解为所有跨目标凭据风险已解决。
 
 官方产品与此 fork 要区分：官方[API Keys 说明](<https://cursor.com/help/models-and-usage/api-keys>)将自定义 key 用于 chat，Tab 使用内建模型；[Tab 故障说明](<https://cursor.com/help/troubleshooting/tab-issues>)涉及 Free/Hobby 限额与网络；[Quickstart](<https://cursor.com/docs/get-started/quickstart>)有登录步骤。不能据此声称官方匿名 Tab 有保证，mock Ultra 也不是上游授权。旧 archive 的 `cursor-tab-server` 是要求官方 token 的 Go 代理，不是本地推理/免账号方案。
 
@@ -75,7 +74,7 @@ Local 生成不会透传 Cursor 官方凭据给模型 provider，只使用选定
 1. **获取并运行本 fork 的新构建。** 本次未发布 release；不能下载上游安装包当纯净版。若旧桌面程序正在运行，先从托盘菜单彻底退出再启动新构建；改源码不会更新旧进程，同一 single-instance 标识还可能把新启动转交旧程序。通用[上游教程](<https://docs.leokun.cn>)可以保留作参考，应用内教程是点击后确认打开，不是自动外联教程站。
 2. **审查并启用既有本地接管。** 打开 Cursor 配置，了解代理、CA 和 Cursor 设置改动；由你自行安装/信任 CA 并启用接管。没有这些条件，TAB 的正常官方 origin 不一定路由回本地。
 3. **添加并测试模型通道。** 填协议、地址、Key、模型名称，保存并运行连接测试。推荐低延迟、短输出模型；连接测试不是工具能力或客户端补全验收。
-4. **明确选择 TAB 模型。** 系统设置 → TAB 设置 → 编辑 → 内置 BYOK TAB → TAB 补全模型 → 保存。不选模型就是停用，无需再填第二套 Key。若从旧版本更新，即使旧 Custom 曾配置，也要重新选择/输入。
+4. **明确选择 TAB 模型。** 系统设置 → TAB 设置 → 编辑 → 内置 BYOK TAB → TAB 补全模型 → 保存。不选模型就是停用，无需再填第二套 Key。若从旧版本更新，须重新选择模型。
 5. **保持桌面运行并重启 Cursor。** 首次接管/升级后完全退出并重启 Cursor；Agent 新开对话并手动选配置模型（不是 Auto）；TAB 另在非敏感临时文件尝试行尾、行中、中文/emoji、CRLF。
 6. **检查更新行为。** 系统设置 → 应用设置 → 检查更新，应提示“暂无更新源”，不是“当前已是最新版本”。这不是需要你补填作者更新源的故障。
 
@@ -100,7 +99,7 @@ Local 生成不会透传 Cursor 官方凭据给模型 provider，只使用选定
 
 **限制不是计费保证：** 用户显式额外参数仍可能覆盖 provider 的 upstream max-output 参数；默认 256 tokens 不是硬性 API 费用上限。8 秒期限和本地字节限额也不能证明服务商一定停止计费或取消已执行工作。
 
-**不是全局网络防火墙：** fail closed 只覆盖当前识别的补全 namespace/命名规则。未来使用其他名字的 RPC、其他 Cursor 服务和 Cursor 自身流量不被全局阻断。Direct/Custom 是用户显式外联；不要把 Local 的默认边界套给它们。
+**不是全局网络防火墙：** fail closed 只覆盖当前识别的补全 namespace/命名规则。未来使用其他名字的 RPC、其他 Cursor 服务和 Cursor 自身流量不被全局阻断。Direct 是对官方的外联；不要把 Local 的默认边界套给它们。
 
 Cpp metadata 中 `cpp_url`/`geo_cpp_backend_url` 保留正常 `https://api2.cursor.sh` origin，以复用已启用的既有 CA/本地 relay；**不是 Local 生成失败后向官方发代码**。代理未启用或客户端不走该路径则需单独诊断。
 
@@ -121,7 +120,7 @@ Cpp metadata 中 `cpp_url`/`geo_cpp_backend_url` 保留正常 `https://api2.curs
 | 前端依赖安装 | `npm ci --ignore-scripts`：175 packages | 不是全部依赖内容/供应链审计；未运行依赖安装脚本 |
 | i18n | 扫描通过；zh/en/pt 三语言 455 keys 完整 | 不是所有运行界面的视觉/可访问性验收 |
 | 前端检查 | `npm run check` 通过：frontend + node TypeScript、Vite | 不是 Tauri 原生打包/桌面运行验收 |
-| Rust 格式/定向回归 | `cargo fmt --all -- --check` 通过；最终 pure_mode 8、tab_service 21、commit_message 5、external_api 12 均通过 | classifier 回归已计入；不是实机客户端验收 |
+| Rust 格式/定向回归 | `cargo fmt --all -- --check` 通过；最终 pure_mode 8、tab_service 21、commit_message 5 均通过 | classifier 回归已计入；不是实机客户端验收 |
 | Rust 全 workspace | `cargo test --locked --workspace -- --test-threads=1`：**332 passed / 0 failed**，exit 0；测试 HOME 隔离，显式设置 loopback `NO_PROXY` | 可选 embedding 模型夹具未配置，其已有测试提前返回；未验证真实推理/OAuth |
 | macOS 原生构建 | `npm --prefix apps/desktop run tauri -- build --debug --no-bundle` 通过，得到 arm64 Mach-O；未运行 | 不是签名安装包、Windows/Linux 原生构建或真实桌面联调 |
 | 真实 Cursor/模型 | **未做** | fixtures 不证明 range/ghost text 能显示、TAB 能接受或 full-buffer fallback 会实际触发 |

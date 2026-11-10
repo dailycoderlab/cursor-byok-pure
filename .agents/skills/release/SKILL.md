@@ -1,6 +1,6 @@
 ---
 name: release
-description: Prepare, authorize, publish, troubleshoot, and verify Cursor BYOK desktop GitHub Releases. Use for version bumps, release tags, GitHub Actions release runs, updater manifests, signing, or release-readiness checks.
+description: Prepare, authorize, publish, troubleshoot, and verify Cursor BYOK Pure desktop GitHub Releases. Use for version bumps, release tags, GitHub Actions release runs, updater manifests, signing, or release-readiness checks.
 ---
 
 # Desktop release
@@ -13,7 +13,7 @@ Release through `.github/workflows/release.yml`. Preserve both updater formats: 
 - Before any live mutation, require an explicit release instruction from the author in the current task and verify `gh api user --jq .login` returns `leookun`.
 - Treat all of these as publication actions: pushing a `v*` tag, rerunning the release workflow, and publishing or editing a GitHub Release. Pushing a release commit to `main` only prepares the release and must never trigger publication by itself.
 - Without that authorization, restrict work to inspection, local edits, validation, and a release-ready commit or branch. Do not infer publication permission from requests such as “prepare”, “check”, or “ready to release”.
-- Never print, commit, or upload `.tauri/cursor-byok.key` anywhere except the repository's `TAURI_SIGNING_PRIVATE_KEY` Actions Secret when the author explicitly requests that secret configuration.
+- Never print, commit, or upload `.tauri/cursor-byok-pure.key` anywhere except the repository's `TAURI_SIGNING_PRIVATE_KEY` Actions Secret when the author explicitly requests that secret configuration.
 - Never delete, replace, or move an existing tag or published Release without separate explicit authorization.
 
 ## Version and GitHub Release policy
@@ -32,7 +32,7 @@ Release through `.github/workflows/release.yml`. Preserve both updater formats: 
 Keep the desktop version identical in the manifests and their locks:
 
 ```text
-cursor-byok/
+cursor-byok-pure/
 ├── Cargo.lock
 ├── apps/desktop/
 │   ├── package.json
@@ -52,7 +52,7 @@ The two listed Proto files are required build inputs and must be committed. Keep
 
 1. Inspect `git status`, fetch `origin/main`, and preserve unrelated user changes. Confirm the release commit is based on the current remote head.
 2. Choose stable or beta numbering explicitly. Update the desktop version in both manifests and lockfiles; do not change the independent `cursor-server` version merely to release the desktop app.
-3. Confirm the updater public key in `tauri.conf.json` matches `.tauri/cursor-byok.key.pub` without exposing the private key.
+3. Confirm the updater public key in `tauri.conf.json` matches `.tauri/cursor-byok-pure.key.pub` without exposing the private key.
 4. Confirm `TAURI_SIGNING_PRIVATE_KEY` exists in GitHub Actions. `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` must be absent when the local key has no password.
 5. Confirm neither the intended tag nor Release already exists.
 6. From `apps/desktop`, run:

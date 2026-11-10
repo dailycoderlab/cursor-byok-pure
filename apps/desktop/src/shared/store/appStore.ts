@@ -26,8 +26,8 @@ export type AppSnapshot = {
 };
 
 const savedTheme = (): ThemeId => {
-  const saved = localStorage.getItem("cursor-byok.theme");
-  return isThemeId(saved) ? saved : "default-dark";
+  const saved = localStorage.getItem("cursor-byok-pure.theme");
+  return isThemeId(saved) ? saved : "default-light";
 };
 
 let snapshot: AppSnapshot = {
@@ -277,7 +277,7 @@ export const appStore = {
     }
   },
   selectTheme(theme: ThemeId) {
-    localStorage.setItem("cursor-byok.theme", theme);
+    localStorage.setItem("cursor-byok-pure.theme", theme);
     applyTheme(theme);
     update({ theme });
   },

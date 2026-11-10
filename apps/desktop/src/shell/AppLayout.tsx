@@ -25,7 +25,7 @@ type MenuItem =
   | { kind: "group"; label: string };
 
 const keptAlivePages = ["/", "/calls", "/settings", "/harness/cursor", "/plugins"];
-const tutorialReadStorageKey = "cursor-byok:tutorial-read";
+const tutorialReadStorageKey = "cursor-byok-pure:tutorial-read";
 const tutorialUrl = "https://docs.leokun.cn";
 
 export function AppLayout() {

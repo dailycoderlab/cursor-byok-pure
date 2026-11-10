@@ -1,7 +1,6 @@
 import cursorIconUrl from "../../shared/assets/icons/cursor.svg";
 import type { TabMode, TabSettings } from "../../shared/api";
 import { Button } from "../../shared/ui/Button";
-import { TextInput } from "../../shared/ui/FormControls";
 import { Icon } from "../../shared/ui/Icon";
 import { ModelSelect, type ModelSelectOption } from "../../shared/ui/ModelSelect";
 import { Select } from "../../shared/ui/Select";
@@ -31,8 +30,7 @@ export function TabSettingsCard({
 }) {
   const modeLabel = (mode: TabMode) => {
     if (mode === "local") return t("内置 BYOK TAB");
-    if (mode === "direct") return t("Cursor 官方直连");
-    return t("自托管服务");
+    return t("Cursor 官方直连");
   };
   const activeSettings = editing ? draft : settings;
   const selectedModelLabel = settings?.model_id
@@ -63,9 +61,8 @@ export function TabSettingsCard({
           disabled={saving}
           ariaLabel={t("TAB 选择")}
           options={[
-            { value: "local", label: t("内置 BYOK TAB") },
             { value: "direct", label: t("Cursor 官方直连") },
-            { value: "custom", label: t("自托管服务") },
+            { value: "local", label: t("内置 BYOK TAB") },
           ]}
           onChange={(mode) => onDraftChange({ ...draft, mode: mode as TabMode })}
         /></div> : <span className={styles.value}>{settings ? modeLabel(settings.mode) : t("加载中…")}</span>}
@@ -91,22 +88,6 @@ export function TabSettingsCard({
       {activeSettings?.mode === "direct" && <div className={styles.description}>
         <small>{t("直连 Cursor 官方 TAB，需有效的 Cursor 登录账号和可用额度；未登录时不保证可用。")}</small>
       </div>}
-      {activeSettings?.mode === "custom" && <>
-        <div className={styles.row}>
-          <strong>{t("TAB 服务地址")}</strong>
-          {editing ? <div className={styles.control}><TextInput
-            value={draft.address}
-            disabled={saving}
-            placeholder="http://127.0.0.1:8041"
-            aria-label={t("TAB 服务地址")}
-            onChange={(event) => onDraftChange({ ...draft, address: event.target.value })}
-            onKeyDown={(event) => { if (event.key === "Enter" && !saving) onSave(); }}
-          /></div> : <span className={styles.value}>{settings?.address}</span>}
-        </div>
-        <div className={styles.description}>
-          <small>{t("使用明确配置的自托管 TAB 服务；原接口路径会追加到此服务地址。")}</small>
-        </div>
-      </>}
     </div>
   </TitledCard>;
 }

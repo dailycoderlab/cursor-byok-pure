@@ -1,6 +1,6 @@
-import { __getRegisteredPlugin, type JsonValue, type NetworkEventStream, type PluginContext } from "cursor-byok:plugin";
-import type { ModelEvent, ProviderSupport } from "cursor-byok:provider";
-import type { ResourceAddMethod, ResourceSupport } from "cursor-byok:resource";
+import { __getRegisteredPlugin, type JsonValue, type NetworkEventStream, type PluginContext } from "cursor-byok-pure:plugin";
+import type { ModelEvent, ProviderSupport } from "cursor-byok-pure:provider";
+import type { ResourceAddMethod, ResourceSupport } from "cursor-byok-pure:resource";
 
 if (Deno.args.length !== 1) throw new Error("plugin entry URL is required");
 await import(Deno.args[0]);

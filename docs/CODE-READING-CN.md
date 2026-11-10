@@ -1,4 +1,4 @@
-# Cursor BYOK 源码阅读路径
+# Cursor BYOK Pure 源码阅读路径
 
 > 依据 2026-11-05 当前工作区实现整理（Git 基线 `6a13780`，有未提交改动）。目标是理解“Cursor 请求如何变成自己的模型 API 请求”，不是顺读所有文件。默认 TAB/广告/updater 当前行为见[纯净模式说明](<./PURE-MODE-CN.md>)；[项目审查报告](<./PROJECT-AUDIT-CN.md>)第 1–9 节是改动前历史证据。本文描述当前结构，不执行应用启动、配置、证书、测试或构建操作。
 
@@ -18,18 +18,18 @@ server/src/bin/cursor-server.rs                apps/desktop/src-tauri/src/main.r
                       server/src/app.rs
                   App::new → bind → serve_on
                             │
-              ┌─────────────┼─────────────────┐
-              ▼             ▼                 ▼
-        Cursor 协议 API   本地管理 API      对外兼容模型 API
-        BidiAppend/RunSSE /__byok-api__/api  /byok/v1/*
-              │             │                 │
-              │         配置/数据库             │
-              └─────────────┴─────────────────┘
+              ┌─────────────┴─────────────┐
+              ▼                           ▼
+        Cursor 协议 API              本地管理 API
+        BidiAppend/RunSSE            /__byok-api__/api
+              │                           │
+              │                       配置/数据库
+              └─────────────┬─────────────┘
                             ▼
                  ProviderRouter → 你配置的 API
 ```
 
-默认 TAB 已改为内置基本补全，必须明确选模型；广告链路已删除，更新机制保留但源为空。仍有 Cursor 官方转发、显式 Direct/Custom TAB、搜索、Semble 模型下载和 OAuth 插件旁路，不能用“本地运行”推导“不会外联”。
+默认 TAB 已改为内置基本补全，必须明确选模型；广告链路已删除，更新机制保留但源为空。仍有 Cursor 官方转发、默认 Direct TAB、搜索、Semble 模型下载和 OAuth 插件旁路，不能用“本地运行”推导“不会外联”。
 
 ## 2. 当前目录就是架构
 
@@ -65,8 +65,7 @@ cursor-byok-pure/
 │   │   │   ├── cursor/handlers.rs          # RPC 分流/未知 TAB 拒绝，451 lines
 │   │   │   ├── cursor/bidi.rs              # 上行 BidiAppend 解码与入队，211 lines
 │   │   │   ├── cursor/run_sse.rs           # 下行事件流与断开处理，232 lines
-│   │   │   ├── cursor/proxy.rs             # 官方 Cursor 请求转发
-│   │   │   └── byok/                       # OpenAI/Anthropic 对外 HTTP 入口
+│   │   │   └── cursor/proxy.rs             # 官方 Cursor 请求转发
 │   │   ├── local_app/                      # Cursor 本机接管：CA、代理、设置、账号、进程
 │   │   ├── cursor/                         # Cursor 特有语义，不能混入通用 Run 层
 │   │   │   ├── protocol/                   # Connect/protobuf 编解码
@@ -307,7 +306,7 @@ OAuth/导入 → private resource → 本地 JSON 存储
 ```text
 TAB 设置 UI → store/settings.rs（cursor_tab_service，旧键不读）
 Cursor → local_app/proxy.rs（非 Direct 的已识别 TAB）
-  → tab/mod.rs（Local/Direct/Custom，Local 空模型直接停用）
+  → tab/mod.rs（Local/Direct，Local 空模型直接停用）
   → tab/context.rs（请求自带当前文件，裁剪 prefix/suffix；不读磁盘）
   → tab/completion.rs → 已选 provider（单次/无工具/无队列/短期限）
   → 原当前行替换 → Connect 流 → Cursor 显示/接受（待实机）
@@ -320,7 +319,7 @@ Cursor → local_app/proxy.rs（非 Direct 的已识别 TAB）
 
 ## 7. 用测试代替猜状态
 
-下表是源码学习入口。最终隔离单线程 Rust 全 workspace **332 项**与格式检查通过，包括 commit_message 5、external_api 12、pure_mode 8、tab_service 21；前端检查/i18n 和 macOS debug 无 bundle 构建也通过。执行条件及首次并发传输断言失败见[验证表](<./PURE-MODE-CN.md#6-验证结果与未验证项>)。仍没有真实 Cursor/模型/CA 验收，构建产物未运行。
+下表是源码学习入口。最终隔离单线程 Rust 全 workspace **332 项**与格式检查通过，包括 commit_message 5、pure_mode 8、tab_service 21；前端检查/i18n 和 macOS debug 无 bundle 构建也通过。执行条件及首次并发传输断言失败见[验证表](<./PURE-MODE-CN.md#6-验证结果与未验证项>)。仍没有真实 Cursor/模型/CA 验收，构建产物未运行。
 
 | 要理解的行为 | 优先阅读的测试 |
 | --- | --- |
@@ -333,7 +332,6 @@ Cursor → local_app/proxy.rs（非 Direct 的已识别 TAB）
 | 历史压缩和 usage/context 边界 | [compaction](<../server/tests/compaction.rs>) |
 | 历史投影与前缀局部约束 | [prefix_stability](<../server/tests/prefix_stability.rs>) |
 | 失败是否传播、连接怎样结束 | [error_lifecycle](<../server/tests/error_lifecycle.rs>) |
-| 对外兼容 API 的 key 校验与协议转换 | [external_api](<../server/tests/external_api.rs>) |
 | Local TAB 预算/范围/取消、metadata/同步禁用 | [tab_service](<../server/tests/tab_service.rs>) |
 | 旧配置隔离、无广告/无作者 TAB、Commit 独立 | [pure_mode](<../server/tests/pure_mode.rs>) |
 | 本地规则注入与知识同步 | [local_rules_context](<../server/tests/local_rules_context.rs>)、[knowledge_rules](<../server/tests/knowledge_rules.rs>) |

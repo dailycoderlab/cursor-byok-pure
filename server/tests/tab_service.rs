@@ -91,7 +91,6 @@ async fn setup(provider: TestProvider, selected: bool) -> (Router, Store, tempfi
     store
         .set_tab_settings(TabSettings {
             mode: TabMode::Local,
-            address: "https://never-contacted.invalid".into(),
             model_id: if selected {
                 model.model_hash
             } else {
@@ -249,7 +248,6 @@ async fn empty_model_and_filesync_without_snapshot_fail_closed() {
         .set_tab_settings(TabSettings {
             mode: TabMode::Local,
             model_id: model.model_hash,
-            address: String::new(),
         })
         .await
         .unwrap();
@@ -544,7 +542,6 @@ async fn thinking_is_not_exposed_as_code_and_saved_reasoning_does_not_disable_ta
         .set_tab_settings(TabSettings {
             mode: TabMode::Local,
             model_id: model.model_hash,
-            address: String::new(),
         })
         .await
         .unwrap();
@@ -614,37 +611,6 @@ async fn configured_metadata_and_unpolled_completion_bodies_do_not_start_generat
         proto::CppConfigResponse::decode(bytes).unwrap().is_on,
         Some(true)
     );
-}
-
-#[tokio::test]
-async fn explicit_custom_service_receives_opaque_tab_requests_without_a_byok_call() {
-    let provider = TestProvider::default();
-    let (router, store, _directory) = setup(provider.clone(), true).await;
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let address = listener.local_addr().unwrap();
-    let service = Router::new().route(
-        tab::TAB_PATHS[0],
-        axum::routing::post(|body: bytes::Bytes| async move {
-            assert_eq!(body.as_ref(), b"opaque-tab-request");
-            "custom-service-response"
-        }),
-    );
-    let task = tokio::spawn(async move {
-        axum::serve(listener, service).await.unwrap();
-    });
-    store
-        .set_tab_settings(TabSettings {
-            mode: TabMode::Custom,
-            model_id: String::new(),
-            address: format!("http://{address}"),
-        })
-        .await
-        .unwrap();
-    let response = send(router, tab::TAB_PATHS[0], b"opaque-tab-request".to_vec()).await;
-    let body = to_bytes(response.into_body(), 65536).await.unwrap();
-    task.abort();
-    assert_eq!(body.as_ref(), b"custom-service-response");
-    assert!(provider.requests.lock().unwrap().is_empty());
 }
 
 #[tokio::test]

@@ -58,7 +58,7 @@ func defaultDatabasePath() string {
 	if err != nil || configDir == "" {
 		return defaultDatabaseName
 	}
-	return filepath.Join(configDir, "cursor-byok", defaultDatabaseName)
+	return filepath.Join(configDir, "cursor-byok-pure", defaultDatabaseName)
 }
 
 // ExchangeSummary 是请求列表使用的紧凑捕获摘要。

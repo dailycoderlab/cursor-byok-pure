@@ -1,4 +1,4 @@
-import type { JsonValue, NetworkRequestInit, PluginContext } from "cursor-byok:plugin";
+import type { JsonValue, NetworkRequestInit, PluginContext } from "cursor-byok-pure:plugin";
 import type {
   ResourceDraft,
   ResourceImportFile,
@@ -9,7 +9,7 @@ import type {
   ResourceSnapshot,
   ResourceState,
   ResourceView,
-} from "cursor-byok:resource";
+} from "cursor-byok-pure:resource";
 import {
   ANTIGRAVITY_CLIENT_HEADERS,
   ANTIGRAVITY_ENDPOINTS,

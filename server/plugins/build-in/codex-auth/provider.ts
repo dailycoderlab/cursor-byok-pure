@@ -3,9 +3,9 @@ import type {
   ProviderOutput,
   ProviderResult,
   ProviderSupport,
-} from "cursor-byok:provider";
-import type { PluginContext } from "cursor-byok:plugin";
-import { HttpError, streamOpenAiResponses } from "cursor-byok:protocol/openai-responses";
+} from "cursor-byok-pure:provider";
+import type { PluginContext } from "cursor-byok-pure:plugin";
+import { HttpError, streamOpenAiResponses } from "cursor-byok-pure:protocol/openai-responses";
 import { codexModels, reasoningEfforts } from "./models.ts";
 import {
   type AccountData,

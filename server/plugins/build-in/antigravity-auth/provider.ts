@@ -6,9 +6,9 @@ import type {
   ProviderOutput,
   ProviderResult,
   ProviderSupport,
-} from "cursor-byok:provider";
-import type { JsonValue, PluginContext } from "cursor-byok:plugin";
-import { HttpError } from "cursor-byok:protocol/openai-chat";
+} from "cursor-byok-pure:provider";
+import type { JsonValue, PluginContext } from "cursor-byok-pure:plugin";
+import { HttpError } from "cursor-byok-pure:protocol/openai-chat";
 import {
   ANTIGRAVITY_CLIENT_HEADERS,
   ANTIGRAVITY_ENDPOINTS,

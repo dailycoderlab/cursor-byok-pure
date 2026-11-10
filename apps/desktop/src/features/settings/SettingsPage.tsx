@@ -4,7 +4,6 @@ import { PageContent } from "../../shell/layout/PageContent";
 import { LegacyModelImport } from "../models/LegacyModelImport";
 import { AppLifecycleSettingsCard } from "./AppLifecycleSettingsCard";
 import { CommitSettingsCard } from "./CommitSettingsCard";
-import { ExternalApiSettingsCard } from "./ExternalApiSettingsCard";
 import { PricingSettingsCard } from "./PricingSettingsCard";
 import { ProxySettingsCard } from "./ProxySettingsCard";
 import { TabSettingsCard } from "./TabSettingsCard";
@@ -40,7 +39,7 @@ export function SettingsPage() {
   const [editingProxy, setEditingProxy] = useState(false);
   const [savingProxy, setSavingProxy] = useState(false);
   const [tabSettings, setTabSettings] = useState<TabSettings | null>(null);
-  const [tabDraft, setTabDraft] = useState<TabSettings>({ mode: "local", address: "", model_id: "" });
+  const [tabDraft, setTabDraft] = useState<TabSettings>({ mode: "direct", model_id: "" });
   const [editingTab, setEditingTab] = useState(false);
   const [savingTab, setSavingTab] = useState(false);
   const tabModelOptions = useMemo(() => {
@@ -173,12 +172,11 @@ export function SettingsPage() {
   };
   const saveTab = async () => {
     try {
-      if (tabDraft.mode === "custom" && !tabDraft.address.trim()) throw new Error(t("TAB 服务地址不能为空"));
       if (tabDraft.mode === "local" && tabDraft.model_id && !tabModelOptions.some((option) => option.value === tabDraft.model_id)) {
         throw new Error(t("请选择可用的 TAB 模型，或清空选择以停用。"));
       }
       setSavingTab(true);
-      const saved = await api.setTabSettings({ ...tabDraft, address: tabDraft.address.trim() });
+      const saved = await api.setTabSettings(tabDraft);
       setTabSettings(saved);
       setTabDraft(saved);
       setEditingTab(false);
@@ -261,7 +259,6 @@ export function SettingsPage() {
           </div>
         </div>
       </TitledCard>
-      <ExternalApiSettingsCard servicePort={ports.service_port} />
       <ProxySettingsCard settings={outboundProxy} draft={proxyDraft} editing={editingProxy} saving={savingProxy} onDraftChange={setProxyDraft} onEdit={editProxy} onCancel={cancelProxyEdit} onSave={() => void saveProxy()} />
       <TabSettingsCard settings={tabSettings} draft={tabDraft} modelOptions={tabModelOptions} editing={editingTab} saving={savingTab} onDraftChange={setTabDraft} onEdit={editTab} onCancel={cancelTabEdit} onSave={() => void saveTab()} />
       <CommitSettingsCard />

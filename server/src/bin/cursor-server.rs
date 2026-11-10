@@ -1,4 +1,4 @@
-//! Starts the Cursor BYOK server executable.
+//! Starts the Cursor BYOK Pure server executable.
 use cursor_server::{App, Config, Result};
 use tracing_subscriber::prelude::*;
 

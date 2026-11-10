@@ -176,19 +176,13 @@ async fn forward_unhandled(
 ) -> Result<Response<Body>> {
     if tab::is_tab_path(request.uri().path()) {
         let settings = registry.store().tab_settings().await?;
-        match settings.mode {
-            TabMode::Local => {
-                let streaming = request
-                    .headers()
-                    .get(header::CONTENT_TYPE)
-                    .and_then(|value| value.to_str().ok())
-                    .is_some_and(|value| value.starts_with("application/connect+"));
-                return unsupported_local_tab(streaming);
-            }
-            TabMode::Custom => {
-                return proxy::forward_to_service(&upstream, request, &settings.address).await;
-            }
-            TabMode::Direct => {}
+        if settings.mode == TabMode::Local {
+            let streaming = request
+                .headers()
+                .get(header::CONTENT_TYPE)
+                .and_then(|value| value.to_str().ok())
+                .is_some_and(|value| value.starts_with("application/connect+"));
+            return unsupported_local_tab(streaming);
         }
     }
     proxy::forward(Extension(upstream), request).await

@@ -1,5 +1,5 @@
-import type { JsonValue } from "cursor-byok:plugin";
-import type { ModelDefinition, ModelSnapshot, ModelSupport } from "cursor-byok:model";
+import type { JsonValue } from "cursor-byok-pure:plugin";
+import type { ModelDefinition, ModelSnapshot, ModelSupport } from "cursor-byok-pure:model";
 import { accountData } from "./resources.ts";
 
 export const ANTIGRAVITY_PROD_ENDPOINT = "https://cloudcode-pa.googleapis.com";

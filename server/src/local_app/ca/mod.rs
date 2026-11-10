@@ -126,8 +126,8 @@ impl CaManager {
         let mut params = CertificateParams::new(Vec::<String>::new())
             .map_err(|error| Error::Config(format!("create CA parameters: {error}")))?;
         let mut name = DistinguishedName::new();
-        name.push(DnType::CommonName, "Cursor BYOK Local CA");
-        name.push(DnType::OrganizationName, "Cursor BYOK");
+        name.push(DnType::CommonName, "Cursor BYOK Pure Local CA");
+        name.push(DnType::OrganizationName, "Cursor BYOK Pure");
         params.distinguished_name = name;
         params.is_ca = IsCa::Ca(BasicConstraints::Constrained(0));
         params.key_usages = vec![
@@ -219,7 +219,7 @@ fn is_installed(cert: &str) -> Result<bool> {
     }
 }
 
-const LINUX_ANCHOR_NAME: &str = "cursor-byok-local-ca.crt";
+const LINUX_ANCHOR_NAME: &str = "cursor-byok-pure-local-ca.crt";
 
 fn linux_anchor_file() -> PathBuf {
     if PathBuf::from("/etc/pki/ca-trust/source/anchors").is_dir() {

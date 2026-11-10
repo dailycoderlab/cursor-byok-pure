@@ -1,6 +1,6 @@
 {
   "apiVersion": 1,
-  "id": "dev.cursorbyok.examples.codex-auth",
+  "id": "dev.cursorbyokpure.examples.codex-auth",
   "name": "Codex",
   "version": "0.1.7",
   "author": "@leookun",

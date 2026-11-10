@@ -1,4 +1,4 @@
-import type { ModelDefinition, ModelSupport } from "cursor-byok:model";
+import type { ModelDefinition, ModelSupport } from "cursor-byok-pure:model";
 import { accountData } from "./resources.ts";
 
 const LANGUAGE_MODELS_URL = "https://api.x.ai/v1/language-models";

@@ -1,9 +1,9 @@
-import type { JsonValue, PluginContext } from "cursor-byok:plugin";
+import type { JsonValue, PluginContext } from "cursor-byok-pure:plugin";
 import type {
   OAuth2AuthorizationCodeAddMethod,
   OAuth2AuthorizationCodeBegin,
   ResourceDraft,
-} from "cursor-byok:resource";
+} from "cursor-byok-pure:resource";
 import { credentialDraft, queryAccountQuota } from "./resources.ts";
 import {
   CLIENT_ID,

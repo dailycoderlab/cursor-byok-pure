@@ -1,4 +1,4 @@
-import { defineProviderPlugin } from "cursor-byok:plugin";
+import { defineProviderPlugin } from "cursor-byok-pure:plugin";
 import { codexDeviceOAuth } from "./oauth.ts";
 import { codexProvider } from "./provider.ts";
 import {

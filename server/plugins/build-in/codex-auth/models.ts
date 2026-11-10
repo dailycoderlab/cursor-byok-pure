@@ -1,5 +1,5 @@
-import type { JsonValue } from "cursor-byok:plugin";
-import type { ModelDefinition, ModelSnapshot, ModelSupport } from "cursor-byok:model";
+import type { JsonValue } from "cursor-byok-pure:plugin";
+import type { ModelDefinition, ModelSnapshot, ModelSupport } from "cursor-byok-pure:model";
 import { accountData, accountHeaders } from "./resources.ts";
 
 const MODELS_URL = "https://chatgpt.com/backend-api/codex/models?client_version=1.0.0";

@@ -1,4 +1,4 @@
-import type { JsonValue, PluginContext } from "cursor-byok:plugin";
+import type { JsonValue, PluginContext } from "cursor-byok-pure:plugin";
 import type {
   ResourceAction,
   ResourceActionCard,
@@ -12,7 +12,7 @@ import type {
   ResourceSnapshot,
   ResourceState,
   ResourceView,
-} from "cursor-byok:resource";
+} from "cursor-byok-pure:resource";
 
 export const RESOURCE_TYPE = "chatgpt-account";
 

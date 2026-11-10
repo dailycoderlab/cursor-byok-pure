@@ -1,7 +1,6 @@
 import type {
   CallDetail,
   CursorHarnessStatus,
-  ExternalApiSettings,
   LlmCall,
   Model,
   Overview,
@@ -87,7 +86,6 @@ let harnessStatus: CursorHarnessStatus = {
 
 let detailed = true;
 let portSettings = { proxy_port: 0, service_port: 0 };
-let externalApiSettings: ExternalApiSettings = { enabled: false, api_key: "" };
 let proxySettings: ProxySettings = {
   mode: "default",
   address: "",
@@ -95,7 +93,7 @@ let proxySettings: ProxySettings = {
   username: "",
   has_password: false,
 };
-let tabSettings: TabSettings = { mode: "local", address: "", model_id: "" };
+let tabSettings: TabSettings = { mode: "direct", model_id: "" };
 let storage: StatisticsStorage = { call_count: calls.length, trace_count: calls.length };
 
 export function installDemoApi() {
@@ -148,11 +146,6 @@ export function installDemoApi() {
     if (path === "/settings/ports") {
       portSettings = body as typeof portSettings;
       return json(portSettings);
-    }
-    if (path === "/settings/external-api" && method === "GET") return json(externalApiSettings);
-    if (path === "/settings/external-api") {
-      externalApiSettings = body as ExternalApiSettings;
-      return json(externalApiSettings);
     }
     if (path === "/settings/storage/statistics" && method === "GET") return json(storage);
     if (path === "/settings/storage/statistics") {
