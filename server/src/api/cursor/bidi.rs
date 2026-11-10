@@ -183,8 +183,117 @@ pub fn decode(request: &ai::BidiAppendRequest) -> Result<DecodedAppend> {
     Ok(DecodedAppend {
         request_id: request_id.into(),
         seqno: request.append_seqno,
-        message: agent::AgentClientMessage::decode(payload)?,
+        message: agent::AgentClientMessage::decode(payload).map_err(|error| {
+            // 只记录字段号、线型和长度，不记录任何内容，便于定位客户端与本地 proto 的差异。
+            tracing::warn!(
+                request_id,
+                payload_len = payload.len(),
+                shape = wire_shape(payload, 3),
+                %error,
+                "BidiAppend AgentClientMessage failed to decode"
+            );
+            Error::from(error)
+        })?,
     })
+}
+
+/// 以 `字段号:线型` 的形式描述 protobuf 的线格式结构，仅用于解码失败时的诊断。
+///
+/// 长度分隔字段在能完整解析为嵌套消息时展开为 `{...}`，否则只给出长度；条目数有上限。
+fn wire_shape(mut buf: &[u8], depth: usize) -> String {
+    use prost::encoding::decode_varint;
+    const MAX_ITEMS: usize = 48;
+    let mut items = Vec::new();
+    while !buf.is_empty() {
+        if items.len() == MAX_ITEMS {
+            items.push("…".to_owned());
+            break;
+        }
+        let Ok(key) = decode_varint(&mut buf) else {
+            items.push("<bad key>".to_owned());
+            break;
+        };
+        let (tag, wire_type) = (key >> 3, key & 7);
+        match wire_type {
+            0 => match decode_varint(&mut buf) {
+                Ok(_) => items.push(format!("{tag}:varint")),
+                Err(_) => {
+                    items.push(format!("{tag}:<bad varint>"));
+                    break;
+                }
+            },
+            1 | 5 => {
+                let size = if wire_type == 1 { 8 } else { 4 };
+                if buf.len() < size {
+                    items.push(format!("{tag}:<truncated fixed>"));
+                    break;
+                }
+                buf = &buf[size..];
+                items.push(format!("{tag}:fixed{}", size * 8));
+            }
+            2 => {
+                let Ok(length) = decode_varint(&mut buf) else {
+                    items.push(format!("{tag}:<bad length>"));
+                    break;
+                };
+                let length = length as usize;
+                if length > buf.len() {
+                    items.push(format!("{tag}:len {length} > remaining {}", buf.len()));
+                    break;
+                }
+                let (value, rest) = buf.split_at(length);
+                buf = rest;
+                let nested = (depth > 0 && !value.is_empty() && is_wire_message(value))
+                    .then(|| wire_shape(value, depth - 1));
+                match nested {
+                    Some(nested) => items.push(format!("{tag}:{{{nested}}}")),
+                    None => items.push(format!("{tag}:len {length}")),
+                }
+            }
+            other => {
+                items.push(format!("{tag}:<wire type {other}>"));
+                break;
+            }
+        }
+    }
+    items.join(" ")
+}
+
+fn is_wire_message(mut buf: &[u8]) -> bool {
+    use prost::encoding::decode_varint;
+    while !buf.is_empty() {
+        let Ok(key) = decode_varint(&mut buf) else {
+            return false;
+        };
+        if key >> 3 == 0 {
+            return false;
+        }
+        match key & 7 {
+            0 => {
+                if decode_varint(&mut buf).is_err() {
+                    return false;
+                }
+            }
+            1 | 5 => {
+                let size = if key & 7 == 1 { 8 } else { 4 };
+                if buf.len() < size {
+                    return false;
+                }
+                buf = &buf[size..];
+            }
+            2 => {
+                let Ok(length) = decode_varint(&mut buf) else {
+                    return false;
+                };
+                if length as usize > buf.len() {
+                    return false;
+                }
+                buf = &buf[length as usize..];
+            }
+            _ => return false,
+        }
+    }
+    true
 }
 
 pub async fn append(
@@ -249,6 +358,17 @@ mod tests {
         assert_eq!(from_hex.message, from_binary.message);
         assert_eq!(from_binary.seqno, 7);
         assert_eq!(from_binary.request_id, "request");
+    }
+
+    #[test]
+    fn wire_shape_describes_structure_without_content() {
+        // field 1: nested { field 2: "secret" }, field 3: varint 7, field 4: truncated length
+        let valid = [0x0a, 0x08, 0x12, 0x06, b's', b'e', b'c', b'r', b'e', b't', 0x18, 0x07];
+        let shape = wire_shape(&valid, 3);
+        assert_eq!(shape, "1:{2:len 6} 3:varint");
+        assert!(!shape.contains("secret"));
+        assert_eq!(wire_shape(&[0x22, 0x05, 0x01], 3), "4:len 5 > remaining 1");
+        assert_eq!(wire_shape(&[0x0b], 3), "1:<wire type 3>");
     }
 
     #[test]

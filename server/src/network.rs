@@ -61,6 +61,14 @@ impl NetworkClients {
         Ok(client)
     }
 
+    /// 丢弃已缓存的 Cursor 上游 client，下次取用时重新读取系统代理。
+    ///
+    /// reqwest 在构建 client 时快照系统代理；代理软件重启或临时不可用时构建出的 client
+    /// 会一直连向失效的代理端口，必须重建才能恢复。
+    pub async fn reset_cursor_client(&self) {
+        self.cache.write().await.cursor = None;
+    }
+
     pub async fn provider_client(&self, timeout: Duration) -> Result<reqwest::Client> {
         if let Some((_, client)) = self
             .cache
@@ -221,5 +229,58 @@ mod tests {
                 .is_err(),
             "loopback destination unexpectedly reached the configured proxy"
         );
+    }
+
+    async fn connect_error_of(client: &reqwest::Client) -> reqwest::Error {
+        // 203.0.113.0/24 是文档保留地址，永远不会真正响应；直连只会超时，不会"连接失败"。
+        client
+            .get("http://203.0.113.1/")
+            .timeout(Duration::from_millis(800))
+            .send()
+            .await
+            .unwrap_err()
+    }
+
+    fn proxy_input(mode: ProxyMode, address: String) -> crate::store::ProxySettingsInput {
+        crate::store::ProxySettingsInput {
+            mode,
+            address,
+            auth_enabled: false,
+            username: String::new(),
+            password: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn reset_cursor_client_rebuilds_with_the_current_proxy() {
+        let directory = tempfile::tempdir().unwrap();
+        let url = format!("sqlite://{}", directory.path().join("test.db").display());
+        let store = Store::connect(&url).await.unwrap();
+        let clients = NetworkClients::new(store.clone());
+
+        // 无人监听的代理端口：此时构建的 client 会快照到它，非本机请求在连接阶段失败。
+        let dead = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let dead_address = dead.local_addr().unwrap();
+        drop(dead);
+        store
+            .set_proxy_settings(proxy_input(ProxyMode::Custom, format!("http://{dead_address}")))
+            .await
+            .unwrap();
+        let stale = clients.cursor_client().await.unwrap();
+        assert!(connect_error_of(&stale).await.is_connect());
+
+        // 代理设置恢复后，缓存里的 client 仍指向失效代理。
+        store
+            .set_proxy_settings(proxy_input(ProxyMode::Default, String::new()))
+            .await
+            .unwrap();
+        assert!(connect_error_of(&clients.cursor_client().await.unwrap())
+            .await
+            .is_connect());
+
+        // 重置后重新构建，不再经过失效代理：只会超时，不再是连接失败。
+        clients.reset_cursor_client().await;
+        let rebuilt = clients.cursor_client().await.unwrap();
+        assert!(!connect_error_of(&rebuilt).await.is_connect());
     }
 }

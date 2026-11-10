@@ -56,6 +56,10 @@ impl CursorProxy {
     async fn client(&self) -> Result<reqwest::Client> {
         self.clients.cursor_client().await
     }
+
+    async fn reset_client(&self) {
+        self.clients.reset_cursor_client().await;
+    }
 }
 
 pub async fn forward(
@@ -94,10 +98,16 @@ async fn forward_request(
     let upstream = match upstream {
         Ok(response) => response,
         Err(error) => {
+            if error.is_connect() {
+                // 连接阶段失败说明缓存 client 快照的系统代理可能已失效；请求体是流无法重放，
+                // 这里只重建 client，由 Cursor 自身的重试使用新的连接配置。
+                proxy.reset_client().await;
+            }
             tracing::error!(
                 method = %parts.method,
                 path,
                 elapsed_ms = started.elapsed().as_millis(),
+                is_connect = error.is_connect(),
                 %error,
                 "Cursor upstream request failed"
             );
@@ -147,14 +157,21 @@ pub async fn forward_buffered(
     let body = to_bytes(body, usize::MAX)
         .await
         .map_err(|error| crate::Error::Protocol(format!("cannot read request body: {error}")))?;
-    let upstream = proxy
-        .client()
-        .await?
-        .request(parts.method, url)
-        .headers(headers)
-        .body(body)
-        .send()
-        .await?;
+    let send = |client: reqwest::Client| {
+        client
+            .request(parts.method.clone(), url.clone())
+            .headers(headers.clone())
+            .body(body.clone())
+            .send()
+    };
+    let upstream = match send(proxy.client().await?).await {
+        Err(error) if error.is_connect() => {
+            tracing::warn!(%error, "Cursor upstream connection failed; rebuilding client and retrying once");
+            proxy.reset_client().await;
+            send(proxy.client().await?).await?
+        }
+        result => result?,
+    };
     let status = upstream.status();
     let mut headers = upstream.headers().clone();
     remove_hop_by_hop_headers(&mut headers);
