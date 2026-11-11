@@ -218,21 +218,24 @@ mod tests {
             .unwrap();
         assert_eq!(remaining, 0);
 
-        sqlx::query("INSERT INTO ItemTable(key, value) VALUES('cursorAuth/accessToken', 'official')")
-            .execute(&mut connection)
-            .await
-            .unwrap();
+        sqlx::query(
+            "INSERT INTO ItemTable(key, value) VALUES('cursorAuth/accessToken', 'official')",
+        )
+        .execute(&mut connection)
+        .await
+        .unwrap();
         drop(connection);
         remove_injected_at(&path).await.unwrap();
 
         let mut connection = SqliteConnection::connect(&format!("sqlite:{}", path.display()))
             .await
             .unwrap();
-        let token: String =
-            sqlx::query_scalar("SELECT CAST(value AS TEXT) FROM ItemTable WHERE key = 'cursorAuth/accessToken'")
-                .fetch_one(&mut connection)
-                .await
-                .unwrap();
+        let token: String = sqlx::query_scalar(
+            "SELECT CAST(value AS TEXT) FROM ItemTable WHERE key = 'cursorAuth/accessToken'",
+        )
+        .fetch_one(&mut connection)
+        .await
+        .unwrap();
         assert_eq!(token, "official");
     }
 

@@ -42,7 +42,12 @@ async fn terminate_unix_process(name: &str) -> Result<()> {
     if terminated.success() || terminated.code() == Some(1) {
         // Cursor writes its state while quitting; wait so later edits are not overwritten.
         for _ in 0..50 {
-            if !Command::new("pgrep").args(["-x", name]).status().await?.success() {
+            if !Command::new("pgrep")
+                .args(["-x", name])
+                .status()
+                .await?
+                .success()
+            {
                 break;
             }
             tokio::time::sleep(std::time::Duration::from_millis(200)).await;

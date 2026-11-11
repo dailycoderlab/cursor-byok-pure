@@ -254,7 +254,6 @@ async fn classifier_does_not_suppress_every_configured_local_suggestion() {
             .set_tab_settings(TabSettings {
                 mode: TabMode::Local,
                 model_id,
-                ..TabSettings::default()
             })
             .await
             .unwrap();

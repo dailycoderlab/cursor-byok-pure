@@ -293,6 +293,9 @@ mod tests {
             .is_connect());
         clients.reset_cursor_client().await;
         let rebuilt = clients.cursor_client().await.unwrap();
-        assert_eq!(get_via_proxy(&rebuilt).await.unwrap(), reqwest::StatusCode::OK);
+        assert_eq!(
+            get_via_proxy(&rebuilt).await.unwrap(),
+            reqwest::StatusCode::OK
+        );
     }
 }
