@@ -13,7 +13,7 @@ Release through `.github/workflows/release.yml`. Preserve both updater formats: 
 - Before any live mutation, require an explicit release instruction from the owner in the current task.
 - Treat all of these as publication actions: pushing a `v*` tag, rerunning the release workflow, and publishing or editing a GitHub Release. Merging a release commit to `main` only prepares the release and must never trigger publication by itself.
 - Without that authorization, restrict work to inspection, local edits, validation, and a release-ready commit or branch. Do not infer publication permission from requests such as “prepare”, “check”, or “ready to release”.
-- Never print or commit `.tauri/cursor-byok-pure.key`. The owner copies its full text into the repository's `TAURI_SIGNING_PRIVATE_KEY` Actions Secret; the assistant never uploads it.
+- Never print or commit the updater private key. The owner copies its full text into the repository's `TAURI_SIGNING_PRIVATE_KEY` Actions Secret; the assistant never uploads it.
 - Never delete, replace, or move an existing tag or published Release without separate explicit authorization.
 
 ## Updater signing key
@@ -21,15 +21,15 @@ Release through `.github/workflows/release.yml`. Preserve both updater formats: 
 The updater verifies every update package against `plugins.updater.pubkey` in `tauri.conf.json`; verification cannot be disabled.
 
 ```text
-.tauri/                              # gitignored, local only
-├── cursor-byok-pure.key             # private key  → GitHub Secret TAURI_SIGNING_PRIVATE_KEY
-└── cursor-byok-pure.key.pub         # public key   → tauri.conf.json plugins.updater.pubkey (file content verbatim)
+private key  → owner's backup outside the repository + GitHub Secret TAURI_SIGNING_PRIVATE_KEY
+public key   → tauri.conf.json plugins.updater.pubkey (base64 minisign public key, ID E21BA9E27F5AC0CB)
 ```
 
+- No key file is kept in the working tree. The assistant never has access to the private key after generation.
 - The key has no password, so `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` must not exist as a Secret.
-- Generate a new pair only when no key exists: `cd apps/desktop && npm exec -- tauri signer generate --ci -w ../../.tauri/cursor-byok-pure.key`, then `chmod 600` the private key.
 - Replacing the key pair breaks updates for every installed version; installed clients only accept packages signed by the key their build embeds. Do it only with explicit owner approval.
-- Losing the private key has the same effect. Keep a backup outside the repository.
+- Losing the private key has the same effect. The owner's backup is the only copy besides the Secret.
+- Generate a new pair only when the owner approves a replacement: `cd apps/desktop && npm exec -- tauri signer generate --ci -w ../../.tauri/cursor-byok-pure.key` (`.tauri/` is gitignored). Put the `.pub` file content verbatim into `pubkey`, hand the private key to the owner, then delete both files from the working tree once the owner confirms the backup.
 
 ## Version and GitHub Release policy
 
@@ -68,7 +68,7 @@ The two listed Proto files are required build inputs and must be committed. Keep
 
 1. Inspect `git status`, fetch `origin/main`, and preserve unrelated user changes. Confirm the release commit is based on the current remote head.
 2. Choose stable or beta numbering explicitly. Update the desktop version in both manifests and lockfiles; do not change the independent `cursor-server` version merely to release the desktop app.
-3. Confirm `plugins.updater.pubkey` in `tauri.conf.json` equals the content of `.tauri/cursor-byok-pure.key.pub` without exposing the private key.
+3. Confirm `plugins.updater.pubkey` in `tauri.conf.json` is unchanged (decoded minisign ID `E21BA9E27F5AC0CB`) unless the owner approved a key replacement.
 4. Ask the owner to confirm `TAURI_SIGNING_PRIVATE_KEY` exists in GitHub Actions (the assistant has no access to Secrets). The `prepare` job fails with `TAURI_SIGNING_PRIVATE_KEY is not configured` otherwise.
 5. Confirm neither the intended tag nor Release already exists.
 6. From `apps/desktop`, run:
