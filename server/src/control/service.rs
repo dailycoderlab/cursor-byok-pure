@@ -23,8 +23,8 @@ use crate::{
     plugin::{PluginDescriptor, PluginRegistry, PluginRuntime, PluginRuntimeStatus},
     provider::{is_valid_response_event, ModelEvent, Provider},
     store::{
-        CommitSettings, DesktopSettings, PortSettings, ProxySettings,
-        ProxySettingsInput, StatisticsStorage, Store, TabMode, TabSettings, TokenPricingSettings,
+        CommitSettings, DesktopSettings, PortSettings, ProxySettings, ProxySettingsInput,
+        StatisticsStorage, Store, TabMode, TabSettings, TokenPricingSettings,
     },
     Error, Result,
 };

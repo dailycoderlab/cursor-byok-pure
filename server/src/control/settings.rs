@@ -8,8 +8,8 @@ use axum::{
 use serde::{Deserialize, Serialize};
 
 use crate::store::{
-    CommitPromptLocale, CommitSettings, DesktopSettings, PortSettings,
-    ProxySettings, ProxySettingsInput, StatisticsStorage, StatisticsStorageScope, TabSettings,
+    CommitPromptLocale, CommitSettings, DesktopSettings, PortSettings, ProxySettings,
+    ProxySettingsInput, StatisticsStorage, StatisticsStorageScope, TabSettings,
     TokenPricingSettings,
 };
 

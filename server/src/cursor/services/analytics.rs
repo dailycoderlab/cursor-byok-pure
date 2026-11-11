@@ -202,8 +202,16 @@ mod tests {
 
             apply_gate_overrides(&mut config).unwrap();
 
-            assert_eq!(gate_value(&config, LOCAL_LOOP_GATE), Some(false), "{hash_used}");
-            assert_eq!(gate_value(&config, AGENT_RETRIES_GATE), Some(true), "{hash_used}");
+            assert_eq!(
+                gate_value(&config, LOCAL_LOOP_GATE),
+                Some(false),
+                "{hash_used}"
+            );
+            assert_eq!(
+                gate_value(&config, AGENT_RETRIES_GATE),
+                Some(true),
+                "{hash_used}"
+            );
         }
     }
 

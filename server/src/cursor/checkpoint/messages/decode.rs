@@ -224,8 +224,9 @@ fn decode_replay_state(signature: &str) -> Result<crate::model::ProviderReplaySt
             "invalid Cursor BYOK Pure replay envelope base64: {error}"
         ))
     })?;
-    serde_json::from_slice(&bytes)
-        .map_err(|error| Error::Protocol(format!("invalid Cursor BYOK Pure replay envelope: {error}")))
+    serde_json::from_slice(&bytes).map_err(|error| {
+        Error::Protocol(format!("invalid Cursor BYOK Pure replay envelope: {error}"))
+    })
 }
 
 fn decode_tool_result(value: &Value) -> Result<ToolResultContent> {
