@@ -231,24 +231,24 @@ mod tests {
         );
     }
 
-    async fn connect_error_of(client: &reqwest::Client) -> reqwest::Error {
-        // 203.0.113.0/24 是文档保留地址，永远不会真正响应；直连只会超时，不会"连接失败"。
-        client
-            .get("http://203.0.113.1/")
-            .timeout(Duration::from_millis(800))
-            .send()
-            .await
-            .unwrap_err()
-    }
-
-    fn proxy_input(mode: ProxyMode, address: String) -> crate::store::ProxySettingsInput {
+    fn proxy_input(address: String) -> crate::store::ProxySettingsInput {
         crate::store::ProxySettingsInput {
-            mode,
+            mode: ProxyMode::Custom,
             address,
             auth_enabled: false,
             username: String::new(),
             password: None,
         }
+    }
+
+    /// 经代理访问一个非本机地址：代理可达返回 200，代理不可达则在连接阶段失败。
+    async fn get_via_proxy(client: &reqwest::Client) -> reqwest::Result<reqwest::StatusCode> {
+        client
+            .get("http://example.invalid/")
+            .timeout(Duration::from_secs(5))
+            .send()
+            .await
+            .map(|response| response.status())
     }
 
     #[tokio::test]
@@ -258,29 +258,41 @@ mod tests {
         let store = Store::connect(&url).await.unwrap();
         let clients = NetworkClients::new(store.clone());
 
-        // 无人监听的代理端口：此时构建的 client 会快照到它，非本机请求在连接阶段失败。
+        // 代理软件已退出：端口无人监听，此时构建的 client 会快照到它。
         let dead = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let dead_address = dead.local_addr().unwrap();
         drop(dead);
         store
-            .set_proxy_settings(proxy_input(ProxyMode::Custom, format!("http://{dead_address}")))
+            .set_proxy_settings(proxy_input(format!("http://{dead_address}")))
             .await
             .unwrap();
         let stale = clients.cursor_client().await.unwrap();
-        assert!(connect_error_of(&stale).await.is_connect());
+        assert!(get_via_proxy(&stale).await.unwrap_err().is_connect());
 
-        // 代理设置恢复后，缓存里的 client 仍指向失效代理。
+        // 代理软件重启在另一个端口，设置随之更新；缓存的 client 仍指向旧端口。
+        let live = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let live_address = live.local_addr().unwrap();
+        tokio::spawn(async move {
+            loop {
+                let (mut socket, _) = live.accept().await.unwrap();
+                let mut request = [0_u8; 1024];
+                let _ = socket.read(&mut request).await;
+                let _ = socket
+                    .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+                    .await;
+            }
+        });
         store
-            .set_proxy_settings(proxy_input(ProxyMode::Default, String::new()))
+            .set_proxy_settings(proxy_input(format!("http://{live_address}")))
             .await
             .unwrap();
-        assert!(connect_error_of(&clients.cursor_client().await.unwrap())
+        // 设置变化后缓存的 client 仍指向旧端口，重置后重新构建才会指向新端口。
+        assert!(get_via_proxy(&clients.cursor_client().await.unwrap())
             .await
+            .unwrap_err()
             .is_connect());
-
-        // 重置后重新构建，不再经过失效代理：只会超时，不再是连接失败。
         clients.reset_cursor_client().await;
         let rebuilt = clients.cursor_client().await.unwrap();
-        assert!(!connect_error_of(&rebuilt).await.is_connect());
+        assert_eq!(get_via_proxy(&rebuilt).await.unwrap(), reqwest::StatusCode::OK);
     }
 }

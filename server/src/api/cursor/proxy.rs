@@ -57,8 +57,11 @@ impl CursorProxy {
         self.clients.cursor_client().await
     }
 
-    async fn reset_client(&self) {
-        self.clients.reset_cursor_client().await;
+    /// 连接阶段失败说明缓存 client 快照的系统代理可能已失效，丢弃它让下次请求重新读取。
+    async fn reset_client_if_connect_failed(&self, error: &reqwest::Error) {
+        if error.is_connect() {
+            self.clients.reset_cursor_client().await;
+        }
     }
 }
 
@@ -98,16 +101,12 @@ async fn forward_request(
     let upstream = match upstream {
         Ok(response) => response,
         Err(error) => {
-            if error.is_connect() {
-                // 连接阶段失败说明缓存 client 快照的系统代理可能已失效；请求体是流无法重放，
-                // 这里只重建 client，由 Cursor 自身的重试使用新的连接配置。
-                proxy.reset_client().await;
-            }
+            // 请求体是流无法重放，只重置 client，由 Cursor 自身的重试使用新的连接配置。
+            proxy.reset_client_if_connect_failed(&error).await;
             tracing::error!(
                 method = %parts.method,
                 path,
                 elapsed_ms = started.elapsed().as_millis(),
-                is_connect = error.is_connect(),
                 %error,
                 "Cursor upstream request failed"
             );
@@ -157,18 +156,22 @@ pub async fn forward_buffered(
     let body = to_bytes(body, usize::MAX)
         .await
         .map_err(|error| crate::Error::Protocol(format!("cannot read request body: {error}")))?;
-    let send = |client: reqwest::Client| {
-        client
+    let send = || async {
+        proxy
+            .client()
+            .await?
             .request(parts.method.clone(), url.clone())
             .headers(headers.clone())
             .body(body.clone())
             .send()
+            .await
+            .map_err(Into::into)
     };
-    let upstream = match send(proxy.client().await?).await {
-        Err(error) if error.is_connect() => {
+    let upstream = match send().await {
+        Err(crate::Error::Http(error)) if error.is_connect() => {
             tracing::warn!(%error, "Cursor upstream connection failed; rebuilding client and retrying once");
-            proxy.reset_client().await;
-            send(proxy.client().await?).await?
+            proxy.reset_client_if_connect_failed(&error).await;
+            send().await?
         }
         result => result?,
     };
