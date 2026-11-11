@@ -285,8 +285,8 @@ plugin_id = "."  → root.join(".")  → 全部插件 data
 ### S10 — 中：接管会改变系统信任与 Cursor 配置，退出不完整恢复原值
 
 - 本地 CA 有约十年有效期，安装进系统信任；允许对 `*.cursor.sh` 作 TLS 代理，不只是某一个模型 URL。[CA](<../server/src/local_app/ca/mod.rs#L119-L144>)、[域名](<../server/src/local_app/proxy.rs#L132-L155>)。这是网关实现方式，不是偷偷植入。
-- [代理设置](<../server/src/local_app/settings.rs#L62-L83>) 删除 http.noProxy、覆盖五项设置；关闭时删除这五项，不恢复之前的值，也不恢复 noProxy。JSONC 重新写成 pretty JSON 还会丢掉注释/原格式。
-- [启用接管](<../server/src/local_app/mod.rs>) 可结束 Cursor；禁用只清设置、停止代理，不负责卸载系统根证书或清除注入的本地账号。
+- [代理设置](<../server/src/local_app/settings.rs#L62-L83>) 删除 http.noProxy、覆盖五项设置；启用前把这些键的原值快照到数据目录的 `cursor-settings-original.json`，关闭接管时按快照恢复（含 noProxy）；JSONC 重新写成 pretty JSON 仍会丢掉注释/原格式。
+- [启用接管](<../server/src/local_app/mod.rs>) 可结束 Cursor；关闭接管会停止代理、恢复设置、移除注入的本地账号（用户自行登录的官方账号不动）并退出 Cursor；不卸载系统根证书。
 
 **建议：** 启用前备份 Cursor 设置/账号状态；明确退出、卸载与撤销系统 CA 的独立步骤；不要在未看过效果时运行接管。本文没有代用户做这些操作。
 

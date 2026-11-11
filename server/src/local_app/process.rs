@@ -1,4 +1,4 @@
-//! Terminates the Cursor desktop process before an explicit takeover.
+//! Terminates the Cursor desktop process when takeover starts or stops.
 
 use tokio::process::Command;
 
@@ -40,6 +40,13 @@ async fn terminate_unix_process(name: &str) -> Result<()> {
     }
     let terminated = Command::new("pkill").args(["-x", name]).status().await?;
     if terminated.success() || terminated.code() == Some(1) {
+        // Cursor writes its state while quitting; wait so later edits are not overwritten.
+        for _ in 0..50 {
+            if !Command::new("pgrep").args(["-x", name]).status().await?.success() {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        }
         Ok(())
     } else {
         Err(Error::Config(format!(

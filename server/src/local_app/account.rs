@@ -13,6 +13,22 @@ const SUBJECT: &str = "cursor-local-user";
 const MEMBERSHIP_TYPE: &str = "ultra";
 const SUBSCRIPTION_STATUS: &str = "active";
 
+const KEYS: [&str; 7] = [
+    "cursorAuth/accessToken",
+    "cursorAuth/refreshToken",
+    "cursorAuth/cachedEmail",
+    "cursorAuth/cachedSignUpType",
+    "cursorAuth/stripeMembershipAuthId",
+    "cursorAuth/stripeMembershipType",
+    "cursorAuth/stripeSubscriptionStatus",
+];
+
+/// Removes the injected local account so Cursor starts signed out; an account the user signed
+/// in to themselves is left untouched.
+pub async fn remove_injected() -> Result<()> {
+    remove_injected_at(&state_db_path()?).await
+}
+
 pub async fn inject_if_missing() -> Result<()> {
     inject_if_missing_at(&state_db_path()?).await
 }
@@ -36,6 +52,32 @@ fn state_db_path() -> Result<PathBuf> {
             "Cursor account injection is unsupported on {platform}"
         ))),
     }
+}
+
+async fn remove_injected_at(path: &Path) -> Result<()> {
+    if !path.exists() {
+        return Ok(());
+    }
+    let options = sqlx::sqlite::SqliteConnectOptions::new().filename(path);
+    let mut connection = SqliteConnection::connect_with(&options).await?;
+    let token = sqlx::query_scalar::<_, String>(
+        "SELECT CAST(value AS TEXT) FROM ItemTable WHERE key = 'cursorAuth/accessToken'",
+    )
+    .fetch_optional(&mut connection)
+    .await?;
+    if token.as_deref() != Some(local_token()?.as_str()) {
+        return Ok(());
+    }
+    let mut transaction = connection.begin().await?;
+    for key in KEYS {
+        sqlx::query("DELETE FROM ItemTable WHERE key = ?")
+            .bind(key)
+            .execute(&mut *transaction)
+            .await?;
+    }
+    transaction.commit().await?;
+    tracing::info!("removed injected local Cursor account");
+    Ok(())
 }
 
 async fn inject_if_missing_at(path: &Path) -> Result<()> {
@@ -158,6 +200,40 @@ mod tests {
 
         assert_eq!(membership_type, MEMBERSHIP_TYPE);
         assert_eq!(membership_auth_id, SUBJECT);
+    }
+
+    #[tokio::test]
+    async fn removal_keeps_a_user_signed_in_account() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("state.vscdb");
+        inject_if_missing_at(&path).await.unwrap();
+        remove_injected_at(&path).await.unwrap();
+
+        let mut connection = SqliteConnection::connect(&format!("sqlite:{}", path.display()))
+            .await
+            .unwrap();
+        let remaining: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM ItemTable")
+            .fetch_one(&mut connection)
+            .await
+            .unwrap();
+        assert_eq!(remaining, 0);
+
+        sqlx::query("INSERT INTO ItemTable(key, value) VALUES('cursorAuth/accessToken', 'official')")
+            .execute(&mut connection)
+            .await
+            .unwrap();
+        drop(connection);
+        remove_injected_at(&path).await.unwrap();
+
+        let mut connection = SqliteConnection::connect(&format!("sqlite:{}", path.display()))
+            .await
+            .unwrap();
+        let token: String =
+            sqlx::query_scalar("SELECT CAST(value AS TEXT) FROM ItemTable WHERE key = 'cursorAuth/accessToken'")
+                .fetch_one(&mut connection)
+                .await
+                .unwrap();
+        assert_eq!(token, "official");
     }
 
     #[test]

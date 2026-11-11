@@ -2903,6 +2903,18 @@
         }
       ]
     },
+    "73ed11b10945869b": {
+      "source": "关闭后将停止本地代理，并让 Cursor 恢复原厂状态：恢复接管前的代理设置、移除注入的本地账号，并退出正在运行的 Cursor。再次开启接管时才会重新写入代理与本地账号。是否继续？",
+      "kind": "text",
+      "placeholders": [],
+      "refs": [
+        {
+          "file": "features/models/CursorSettingsPage.tsx",
+          "line": 339,
+          "column": 11
+        }
+      ]
+    },
     "77c9e582e85583af": {
       "source": "测试失败",
       "kind": "text",
@@ -5106,18 +5118,6 @@
           "file": "features/models/CursorModelEditor.tsx",
           "line": 170,
           "column": 137
-        }
-      ]
-    },
-    "d71b0171c44b668a": {
-      "source": "关闭后将移除 Cursor 本地代理配置。如果你需要登陆官方账号，通常不需要关闭操作，推荐直接登陆你的账号即可(byok模型与官方账号的模型已支持无缝衔接)，是否继续关闭并清理代理？",
-      "kind": "text",
-      "placeholders": [],
-      "refs": [
-        {
-          "file": "features/models/CursorSettingsPage.tsx",
-          "line": 339,
-          "column": 11
         }
       ]
     },

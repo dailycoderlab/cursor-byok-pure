@@ -80,8 +80,15 @@ impl ProxyRuntime {
         if let Some(stop) = self.stop.take() {
             let _ = stop.send(());
         }
-        if let Some(task) = self.task.take() {
-            let _ = tokio::time::timeout(std::time::Duration::from_secs(5), task).await;
+        if let Some(mut task) = self.task.take() {
+            // Long-lived Cursor tunnels can stall graceful shutdown; dropping the handle would
+            // only detach the task and leave the port listening, so abort it explicitly.
+            if tokio::time::timeout(std::time::Duration::from_secs(5), &mut task)
+                .await
+                .is_err()
+            {
+                task.abort();
+            }
         }
         self.url = None;
         self.port = None;

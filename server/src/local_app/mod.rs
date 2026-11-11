@@ -105,7 +105,7 @@ impl CursorHarness {
     }
 
     pub async fn cleanup_stale_settings(&self) -> Result<()> {
-        settings::clear_stale_managed_settings()
+        settings::restore()
     }
 
     pub async fn status(&self) -> Result<CursorHarnessStatus> {
@@ -158,7 +158,7 @@ impl CursorHarness {
             self.enable().await?;
         } else {
             self.inner.store.set_cursor_takeover_enabled(false).await?;
-            self.disable().await?;
+            self.restore_cursor().await?;
         }
         self.status().await
     }
@@ -222,10 +222,21 @@ impl CursorHarness {
         Ok(())
     }
 
+    /// Stops the proxy and restores Cursor's settings. Used at shutdown, where the takeover
+    /// flag stays on so the next launch applies it again.
     pub async fn disable(&self) -> Result<()> {
-        settings::clear_proxy_settings()?;
         self.inner.proxy.lock().await.stop().await;
-        Ok(())
+        settings::restore()
+    }
+
+    /// Returns Cursor to its original state: closes it so no live connection or cached
+    /// account survives, removes the injected account and restores the original settings.
+    async fn restore_cursor(&self) -> Result<()> {
+        if let Err(error) = process::terminate_cursor().await {
+            tracing::warn!(%error, "could not terminate Cursor before restoring it");
+        }
+        account::remove_injected().await?;
+        self.disable().await
     }
 }
 

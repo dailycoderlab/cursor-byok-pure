@@ -3,9 +3,11 @@ use std::{collections::BTreeMap, fs, path::PathBuf};
 
 use serde_json::Value;
 
-use crate::{Error, Result};
+use crate::{config, Error, Result};
 
 const NO_PROXY_KEY: &str = "http.noProxy";
+/// Pre-takeover values of every key takeover touches (`null` = key was absent).
+const BACKUP_FILE: &str = "cursor-settings-original.json";
 const KEYS: [&str; 5] = [
     "http.proxy",
     "http.proxyKerberosServicePrincipal",
@@ -59,8 +61,27 @@ fn write(settings: &BTreeMap<String, Value>) -> Result<()> {
     Ok(())
 }
 
+fn backup_path() -> Result<PathBuf> {
+    Ok(config::managed_data_dir()?.join(BACKUP_FILE))
+}
+
+/// Snapshots the keys takeover overwrites, once per takeover: while the managed settings are
+/// already in place the existing snapshot is kept.
+fn backup(settings: &BTreeMap<String, Value>) -> Result<()> {
+    if is_managed(settings) && backup_path()?.exists() {
+        return Ok(());
+    }
+    let original: BTreeMap<&str, Option<&Value>> = std::iter::once(NO_PROXY_KEY)
+        .chain(KEYS)
+        .map(|key| (key, settings.get(key).filter(|_| !is_managed(settings))))
+        .collect();
+    fs::write(backup_path()?, serde_json::to_vec_pretty(&original)?)?;
+    Ok(())
+}
+
 pub fn write_proxy_settings(proxy_url: &str) -> Result<()> {
     let mut settings = read()?;
+    backup(&settings)?;
     settings.remove(NO_PROXY_KEY);
     settings.insert(KEYS[0].into(), Value::String(proxy_url.into()));
     settings.insert(KEYS[1].into(), Value::String(proxy_url.into()));
@@ -70,16 +91,29 @@ pub fn write_proxy_settings(proxy_url: &str) -> Result<()> {
     write(&settings)
 }
 
-pub fn clear_proxy_settings() -> Result<()> {
+/// Puts Cursor's settings back to their pre-takeover values. Does nothing unless the
+/// takeover settings are still in place, so later manual edits are never overwritten.
+pub fn restore() -> Result<()> {
     let mut settings = read()?;
-    let before = settings.len();
-    for key in KEYS {
-        settings.remove(key);
-    }
-    if settings.len() != before {
+    let backup_path = backup_path()?;
+    if is_managed(&settings) {
+        let original: BTreeMap<String, Option<Value>> = match fs::read(&backup_path) {
+            Ok(data) => serde_json::from_slice(&data)?,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => BTreeMap::new(),
+            Err(error) => return Err(error.into()),
+        };
+        for key in std::iter::once(NO_PROXY_KEY).chain(KEYS) {
+            match original.get(key).cloned().flatten() {
+                Some(value) => settings.insert(key.into(), value),
+                None => settings.remove(key),
+            };
+        }
         write(&settings)?;
     }
-    Ok(())
+    match fs::remove_file(backup_path) {
+        Err(error) if error.kind() != std::io::ErrorKind::NotFound => Err(error.into()),
+        _ => Ok(()),
+    }
 }
 
 pub fn settings_match(proxy_url: &str) -> Result<bool> {
@@ -93,8 +127,7 @@ pub fn settings_match(proxy_url: &str) -> Result<bool> {
     )
 }
 
-pub fn clear_stale_managed_settings() -> Result<()> {
-    let settings = read()?;
+fn is_managed(settings: &BTreeMap<String, Value>) -> bool {
     let managed_signature = settings.get(KEYS[2]) == Some(&Value::String("on".into()))
         && settings.get(KEYS[3]) == Some(&Value::Bool(true))
         && settings.get(KEYS[4]) == Some(&Value::Bool(true));
@@ -104,8 +137,5 @@ pub fn clear_stale_managed_settings() -> Result<()> {
         .and_then(|value| value.parse::<reqwest::Url>().ok())
         .and_then(|url| url.host_str().map(str::to_owned))
         .is_some_and(|host| matches!(host.as_str(), "127.0.0.1" | "localhost" | "::1"));
-    if managed_signature && loopback {
-        clear_proxy_settings()?;
-    }
-    Ok(())
+    managed_signature && loopback
 }
